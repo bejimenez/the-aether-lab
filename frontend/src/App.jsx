@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge.jsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx'
-import { Search, Plus, Minus, Library, TrendingUp, Layers, Hammer } from 'lucide-react'
+import { Select, SelectOption } from '@/components/ui/select.jsx'
+import { Search, Plus, Minus, Library, TrendingUp, Layers, Hammer, Palette } from 'lucide-react'
 import './App.css'
 
 const API_BASE = '/api'
@@ -22,6 +23,38 @@ function App() {
   const [activeTab, setActiveTab] = useState('search')
   const [newDeckName, setNewDeckName] = useState('')
   const [showCreateDeck, setShowCreateDeck] = useState(false)
+  const [currentTheme, setCurrentTheme] = useState('light')
+
+  // Theme switching logic
+  const themes = [
+    { value: 'light', label: 'Light', icon: '☀️' },
+    { value: 'dark', label: 'Dark', icon: '🌙' },
+    { value: 'white', label: 'White Mana', icon: '⚪' },
+    { value: 'blue', label: 'Blue Mana', icon: '🔵' },
+    { value: 'black', label: 'Black Mana', icon: '⚫' },
+    { value: 'green', label: 'Green Mana', icon: '🟢' },
+    { value: 'red', label: 'Red Mana', icon: '🔴' }
+  ]
+
+  const setTheme = (theme) => {
+    // Remove all theme classes
+    document.documentElement.className = ''
+    
+    // Add new theme class (except for light which uses :root)
+    if (theme !== 'light') {
+      document.documentElement.classList.add(theme)
+    }
+    
+    // Store preference
+    localStorage.setItem('theme', theme)
+    setCurrentTheme(theme)
+  }
+
+  // Load theme on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'light'
+    setTheme(savedTheme)
+  }, [])
 
   // Debounced search function
   useEffect(() => {
@@ -325,8 +358,26 @@ function App() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4">
-          <h1 className="text-3xl font-bold">Magic Card Collection Manager</h1>
-          <p className="text-muted-foreground">Manage your Magic: The Gathering card collection and build decks</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold">Magic Card Collection Manager</h1>
+              <p className="text-muted-foreground">Manage your Magic: The Gathering card collection and build decks</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              <Select 
+                value={currentTheme} 
+                onChange={(e) => setTheme(e.target.value)}
+                className="w-48"
+              >
+                {themes.map(theme => (
+                  <SelectOption key={theme.value} value={theme.value}>
+                    {theme.icon} {theme.label}
+                  </SelectOption>
+                ))}
+              </Select>
+            </div>
+          </div>
         </div>
       </header>
 
