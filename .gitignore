@@ -1,4 +1,4 @@
-node-modules/
+node_modules/
 dist/
-node-modules
+node_modules/
 venv/
