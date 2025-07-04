@@ -1,0 +1,318 @@
+# Magic Card Collection Management System - Project Outline
+
+## Project Overview
+
+A modern web application to manage extensive Magic: The Gathering card collections with AI-powered deck building and analysis features. The application will replace outdated collection management tools with a modern, efficient interface and intelligent deck building capabilities.
+
+## Technical Architecture
+
+### Tech Stack
+- **Frontend:** Next.js 14+ with TypeScript, Tailwind CSS, shadcn/ui
+- **Backend:** Next.js API routes (Phase 1-3), potential Python microservices for complex AI (Phase 4)
+- **Database:** Supabase (PostgreSQL) with full-text search
+- **Storage:** Supabase Storage for card images
+- **AI:** DigitalOcean GenAI Platform
+- **External APIs:** Scryfall API for card data
+- **Monorepo:** Turborepo
+
+### Monorepo Structure
+```
+magic-collection-manager/
+├── apps/
+│   └── web/                 # Next.js frontend application
+├── packages/
+│   ├── ui/                  # shadcn/ui components library
+│   ├── database/            # Supabase types & utilities
+│   └── shared/              # Shared utilities & types
+└── services/
+    └── api/                 # API utilities (Scryfall, GenAI)
+```
+
+### Database Schema
+
+#### Core Tables
+```sql
+-- Enable necessary extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- For fuzzy search
+
+-- Cards cache with search optimization
+CREATE TABLE cards_cache (
+  scryfall_id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  mana_cost TEXT,
+  cmc INTEGER,
+  type_line TEXT,
+  oracle_text TEXT,
+  colors TEXT[],
+  keywords TEXT[],
+  image_uri TEXT,
+  local_image_url TEXT, -- Supabase storage URL
+  search_vector TSVECTOR,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- User collections
+CREATE TABLE collection_cards (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  scryfall_id UUID REFERENCES cards_cache(scryfall_id),
+  quantity INTEGER DEFAULT 1 CHECK (quantity > 0),
+  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, scryfall_id)
+);
+
+-- Decks (Phase 3)
+CREATE TABLE decks (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  format TEXT, -- 'standard', 'modern', 'commander', etc.
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Deck cards (Phase 3)
+CREATE TABLE deck_cards (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  deck_id UUID REFERENCES decks(id) ON DELETE CASCADE,
+  scryfall_id UUID REFERENCES cards_cache(scryfall_id),
+  quantity INTEGER DEFAULT 1 CHECK (quantity > 0),
+  card_type TEXT DEFAULT 'mainboard', -- 'mainboard' | 'sideboard'
+  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(deck_id, scryfall_id, card_type)
+);
+
+-- Indexes for performance
+CREATE INDEX cards_search_idx ON cards_cache USING GIN(search_vector);
+CREATE INDEX cards_name_idx ON cards_cache(name);
+CREATE INDEX collection_user_idx ON collection_cards(user_id);
+CREATE INDEX collection_card_idx ON collection_cards(scryfall_id);
+CREATE INDEX decks_user_idx ON decks(user_id);
+CREATE INDEX deck_cards_deck_idx ON deck_cards(deck_id);
+
+-- Search trigger for cards_cache
+CREATE OR REPLACE FUNCTION update_cards_search_vector()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.search_vector := to_tsvector('english', 
+    COALESCE(NEW.name, '') || ' ' || 
+    COALESCE(NEW.type_line, '') || ' ' || 
+    COALESCE(NEW.oracle_text, '') || ' ' ||
+    COALESCE(array_to_string(NEW.keywords, ' '), '')
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER cards_search_trigger
+  BEFORE INSERT OR UPDATE ON cards_cache
+  FOR EACH ROW EXECUTE FUNCTION update_cards_search_vector();
+```
+
+## Implementation Phases
+
+### Phase 1: Collection Management MVP (2-3 weeks)
+
+**Core Features:**
+- User authentication (invite-only, login only)
+- Debounced card search with Scryfall API integration (400ms delay)
+- Card preview with image display
+- Add cards to personal collection with quantity tracking
+- Basic collection viewing with virtual scrolling
+- Color and type filtering
+- Responsive design with dark/light mode
+
+**Technical Implementation:**
+- Next.js API routes for Scryfall proxy (handles rate limiting)
+- PostgreSQL full-text search for collection queries
+- SWR for client-side caching
+- Zod for type safety between frontend/backend
+- React Virtual for collection display performance
+- Image storage in Supabase Storage
+
+**Key API Routes:**
+- `GET /api/cards/search?q={query}` - Scryfall proxy with local caching
+- `POST /api/collection/add` - Add card to user collection
+- `GET /api/collection/search` - Search user's collection with filters
+- `PUT /api/collection/update` - Update card quantities
+
+**Database Operations:**
+- Cache Scryfall card data locally on first search
+- Store card images in Supabase Storage
+- Implement full-text search for fast collection filtering
+
+### Phase 2: Enhanced Collection & Card Scanning (2-3 weeks)
+
+**New Features:**
+- Card scanning via webcam integration with OCR (Tesseract.js)
+- Bulk operations (add multiple cards, bulk quantity updates)
+- Advanced filtering (CMC range, keywords, power/toughness)
+- Collection statistics dashboard (color distribution, type breakdown)
+- Export/import functionality for collection data
+
+**Card Scanning Flow:**
+1. User activates camera interface
+2. Camera captures image of card name area
+3. Tesseract.js OCR extracts text from image
+4. Fuzzy search against Scryfall API for matches
+5. User selects correct card from results
+6. Card added to collection with specified quantity
+
+**Technical Additions:**
+- Tesseract.js integration for client-side OCR
+- Enhanced filtering UI components
+- Collection analytics and visualization
+- Bulk operation APIs
+
+### Phase 3: Deck Building Foundation (3-4 weeks)
+
+**Features:**
+- Create, edit, and delete decks
+- Drag & drop interface from collection to deck
+- Basic deck statistics (mana curve, color distribution, card type breakdown)
+- "Build deck around this card" functionality
+- Format legality checking and warnings
+- Deck validation (minimum cards, etc.)
+
+**"Build Around This Card" Logic:**
+1. Analyze selected card's colors, mana cost, types, and keywords
+2. Query collection for synergistic cards:
+   - Cards sharing colors or colorless alternatives
+   - Cards with synergistic keywords (e.g., artifact synergies)
+   - Tribal type matches for creatures
+   - Mana curve considerations
+3. Pre-populate deck foundation with appropriate lands based on colors
+4. Suggest initial card selections based on synergies
+
+**Technical Implementation:**
+- Deck management APIs and database operations
+- Advanced collection querying for synergy detection
+- Drag & drop UI components
+- Deck statistics calculations
+- Format legality integration with Scryfall data
+
+### Phase 4: AI-Powered Analysis & Optimization (4-5 weeks)
+
+**Features:**
+- Comprehensive deck analysis using DigitalOcean GenAI
+- Intelligent synergy detection and recommendations
+- Deck optimization suggestions (better alternatives from collection)
+- Card acquisition recommendations for deck improvement
+- Meta-game insights and analysis
+- Mana curve optimization recommendations
+
+**AI Integration Features:**
+- **Deck Analysis:** "Analyze this deck" generates comprehensive report
+- **Synergy Detection:** AI identifies complex card interactions and combos
+- **Collection Optimization:** Suggests better alternatives from owned cards
+- **Acquisition Advisor:** Recommends specific cards to purchase with reasoning
+- **Meta Analysis:** Provides insights on deck viability in current meta
+
+**DigitalOcean GenAI Implementation:**
+- Structured prompts for consistent AI responses
+- Integration with deck and collection data
+- Formatted output for UI display
+- Rate limiting and error handling for AI API calls
+
+**AI Prompt Structure Example:**
+```typescript
+interface DeckAnalysisPrompt {
+  deck: {
+    name: string;
+    cards: CardInDeck[];
+    format?: string;
+  };
+  collection: Card[];
+  analysisType: 'synergy' | 'optimization' | 'acquisition' | 'meta';
+}
+```
+
+## Technical Specifications
+
+### Performance Considerations
+- **Collection Display:** React Virtual with smart filtering (never render more than 50-100 cards simultaneously)
+- **Search Optimization:** PostgreSQL full-text search with GIN indexes
+- **API Caching:** Local caching of Scryfall data to minimize external API calls
+- **Image Storage:** Local storage in Supabase with lazy loading
+- **Database Queries:** Optimized with proper indexing and pagination
+
+### Security & Privacy
+- **Authentication:** Supabase Auth with invite-only access
+- **Data Privacy:** All collections and decks are private by default
+- **API Security:** Rate limiting on all endpoints
+- **Input Validation:** Zod schemas for all API inputs
+
+### Deployment Strategy
+- **Iterative Deployment:** Deploy each phase independently
+- **Environment Management:** Separate development, staging, and production environments
+- **Database Migrations:** Version-controlled schema changes
+- **Monitoring:** Error tracking and performance monitoring
+
+## Development Workflow
+
+### Phase 1 Setup
+1. Initialize Turborepo with TypeScript configuration
+2. Set up Next.js with Tailwind CSS and shadcn/ui
+3. Configure Supabase integration and authentication
+4. Implement database schema and initial migrations
+5. Create core API routes and frontend components
+6. Deploy and test with real card data
+
+### Testing Strategy
+- **Unit Tests:** Critical business logic and utilities
+- **Integration Tests:** API endpoints and database operations
+- **E2E Tests:** Core user workflows (search, add to collection, deck building)
+- **Performance Tests:** Collection display with large datasets
+
+### Quality Assurance
+- **TypeScript:** Strict type checking throughout
+- **ESLint/Prettier:** Code formatting and linting
+- **Zod Validation:** Runtime type validation for all API boundaries
+- **Error Handling:** Comprehensive error states and user feedback
+
+## Resource Requirements
+
+### Storage Estimates
+- **Card Images:** ~125KB per card average
+- **10,000 cards:** ~1.25GB storage requirement
+- **Multiple users:** Scale accordingly
+- **Supabase Storage Cost:** ~$0.021/GB/month beyond free tier
+
+### API Usage
+- **Scryfall API:** Rate limited, cached locally to minimize calls
+- **DigitalOcean GenAI:** Usage-based pricing for Phase 4 features
+
+### Development Timeline
+- **Phase 1:** 2-3 weeks (MVP collection management)
+- **Phase 2:** 2-3 weeks (scanning and enhanced features)
+- **Phase 3:** 3-4 weeks (deck building foundation)
+- **Phase 4:** 4-5 weeks (AI-powered analysis)
+- **Total Estimated Timeline:** 11-15 weeks
+
+## Success Metrics
+
+### Phase 1 Success Criteria
+- Successfully import and display 1,000+ cards
+- Sub-second search performance on full collection
+- Stable deployment with multiple concurrent users
+
+### Phase 2 Success Criteria
+- OCR accuracy >85% for card name recognition
+- Bulk operations handle 100+ cards efficiently
+- Advanced filtering provides relevant results
+
+### Phase 3 Success Criteria
+- Intuitive deck building workflow
+- "Build around this card" provides relevant suggestions
+- Deck analysis provides actionable insights
+
+### Phase 4 Success Criteria
+- AI analysis provides valuable deck improvement suggestions
+- Acquisition recommendations are accurate and helpful
+- System handles complex synergy detection effectively
+
+This project outline provides a comprehensive roadmap for building a modern, AI-enhanced Magic card collection management system that will significantly improve upon existing tools while providing innovative deck building and analysis capabilities.
