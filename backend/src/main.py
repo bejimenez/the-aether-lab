@@ -29,9 +29,14 @@ app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(cards_bp, url_prefix='/api')
 app.register_blueprint(decks_bp, url_prefix='/api')
 
-# Use PostgreSQL instead of SQLite
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Database configuration
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Production: Use PostgreSQL
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # Development: Use SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
 db.init_app(app)
 
 def create_default_users():
