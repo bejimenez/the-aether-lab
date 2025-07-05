@@ -50,10 +50,8 @@ def create_deck():
         return jsonify({'error': f'Failed to create deck: {str(e)}'}), 500
 
 @decks_bp.route('/decks/<deck_id>', methods=['GET'])
-def get_deck_details():
+def get_deck_details(deck_id):
     """Get deck details with cards"""
-    deck_id = request.view_args['deck_id']
-    
     try:
         deck = Deck.query.filter_by(id=deck_id).first()
         if not deck:
@@ -99,9 +97,8 @@ def get_deck_details():
         return jsonify({'error': f'Failed to get deck: {str(e)}'}), 500
 
 @decks_bp.route('/decks/<deck_id>/cards', methods=['POST'])
-def add_card_to_deck():
+def add_card_to_deck(deck_id):
     """Add a card to a deck"""
-    deck_id = request.view_args['deck_id']
     data = request.get_json()
     
     if not data or 'scryfall_id' not in data:
@@ -157,9 +154,8 @@ def add_card_to_deck():
         return jsonify({'error': f'Failed to add card to deck: {str(e)}'}), 500
 
 @decks_bp.route('/decks/<deck_id>/cards/<deck_card_id>', methods=['PUT'])
-def update_deck_card():
+def update_deck_card(deck_id, deck_card_id):
     """Update card quantity in deck"""
-    deck_card_id = request.view_args['deck_card_id']
     data = request.get_json()
     
     if not data or 'quantity' not in data:
@@ -191,10 +187,8 @@ def update_deck_card():
         return jsonify({'error': f'Failed to update deck card: {str(e)}'}), 500
 
 @decks_bp.route('/decks/<deck_id>', methods=['DELETE'])
-def delete_deck():
+def delete_deck(deck_id):
     """Delete a deck"""
-    deck_id = request.view_args['deck_id']
-    
     try:
         deck = Deck.query.filter_by(id=deck_id).first()
         if not deck:
@@ -261,59 +255,48 @@ def build_around_card(scryfall_id):
         # Get user's collection for synergy analysis
         user_collection = db.session.query(CollectionCard).join(Card).filter(
             CollectionCard.user_id == user_id,
-            CollectionCard.scryfall_id != scryfall_id  # Exclude the focus card
+            CollectionCard.scryfall_id != scryfall_id
         ).all()
         
-        suggested_cards = []
+        # Add synergistic cards (this is a simplified version)
+        cards_added = 1  # We already added the focus card
         
         for collection_card in user_collection:
+            if cards_added >= 60:  # Standard deck size
+                break
+                
             card = collection_card.card
-            synergy_score = 0
-            
-            # Color synergy
             card_colors = card.colors or []
-            if not focus_colors or not card_colors:  # Colorless cards work with anything
-                synergy_score += 1
-            elif any(color in focus_colors for color in card_colors):
-                synergy_score += 2
+            card_types = card.type_line.lower() if card.type_line else ''
             
-            # Type synergy (basic)
-            if card.type_line:
-                card_types = card.type_line.lower()
-                if 'artifact' in focus_types and 'artifact' in card_types:
-                    synergy_score += 2
-                elif 'creature' in focus_types and 'creature' in card_types:
-                    synergy_score += 1
-                elif 'instant' in focus_types and 'instant' in card_types:
-                    synergy_score += 1
-                elif 'sorcery' in focus_types and 'sorcery' in card_types:
-                    synergy_score += 1
+            # Simple synergy check - same colors or complementary types
+            is_synergistic = (
+                # Same colors
+                any(color in focus_colors for color in card_colors) or
+                # Land cards (always useful)
+                'land' in card_types or
+                # Artifacts (colorless utility)
+                'artifact' in card_types
+            )
             
-            # CMC curve consideration
-            if card.cmc is not None and focus_card.cmc is not None:
-                cmc_diff = abs(card.cmc - focus_card.cmc)
-                if cmc_diff <= 2:  # Similar CMC
-                    synergy_score += 1
-            
-            if synergy_score > 0:
-                suggested_cards.append({
-                    'card': card.to_dict(),
-                    'collection_card': collection_card.to_dict(),
-                    'synergy_score': synergy_score
-                })
-        
-        # Sort by synergy score and take top suggestions
-        suggested_cards.sort(key=lambda x: x['synergy_score'], reverse=True)
-        top_suggestions = suggested_cards[:20]  # Limit suggestions
+            if is_synergistic:
+                # Add card to deck
+                deck_card = DeckCard(
+                    deck_id=deck.id,
+                    scryfall_id=card.scryfall_id,
+                    quantity=min(4, collection_card.quantity),
+                    card_type='mainboard'
+                )
+                db.session.add(deck_card)
+                cards_added += min(4, collection_card.quantity)
         
         db.session.commit()
         
         return jsonify({
             'message': 'Deck created successfully',
             'deck': deck.to_dict(),
-            'focus_card': focus_card.to_dict(),
-            'suggested_cards': top_suggestions
-        })
+            'cards_added': cards_added
+        }), 201
         
     except Exception as e:
         db.session.rollback()
