@@ -7,12 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.j
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx'
 import CollectionTabFixed from './components/CollectionTab.jsx'
 import { Select, SelectOption } from '@/components/ui/select.jsx'
-import { Search, Filter, X, SortAsc, SortDesc, Grid, List, Plus, Minus, Library, TrendingUp, Layers, Hammer, Palette } from 'lucide-react'
+import { Search, Filter, X, SortAsc, SortDesc, Grid, List, Plus, Minus, Library, TrendingUp, Layers, Hammer, Palette, User } from 'lucide-react'
 import './App.css'
 
 const API_BASE = '/api'
+const API_BASE_URL = 'https://the-aether-lab-production.up.railway.app'
 
 function App() {
+  const [currentUser, setCurrentUser] = useState(1); // Default to user 1
+  const [users, setUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [collection, setCollection] = useState([])
@@ -51,6 +54,11 @@ function App() {
     setCurrentTheme(theme)
   }
 
+  useEffect(() => {
+    // Fetch users on app load
+    fetchUsers()
+  }, [])
+
   // Load theme on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') || 'light'
@@ -79,7 +87,7 @@ function App() {
   const searchCards = async (query) => {
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE}/cards/search?q=${encodeURIComponent(query)}`)
+      const response = await fetch(`${API_BASE_URL}/cards/search?q=${encodeURIComponent(query)}`)
       const data = await response.json()
       setSearchResults(data.cards || [])
     } catch (error) {
@@ -92,7 +100,7 @@ function App() {
 
   const loadCollection = async () => {
     try {
-      const response = await fetch(`${API_BASE}/collection/search?user_id=1`)
+      const response = await fetch(`${API_BASE_URL}/collection/search?user_id=${currentUser}`)
       const data = await response.json()
       setCollection(data.collection_cards || [])
     } catch (error) {
@@ -102,7 +110,7 @@ function App() {
 
   const loadCollectionStats = async () => {
     try {
-      const response = await fetch(`${API_BASE}/collection/stats?user_id=1`)
+      const response = await fetch(`${API_BASE_URL}/collection/stats?user_id=${currentUser}`)
       const data = await response.json()
       setCollectionStats(data)
     } catch (error) {
@@ -112,7 +120,7 @@ function App() {
 
   const loadDecks = async () => {
     try {
-      const response = await fetch(`${API_BASE}/decks?user_id=1`)
+      const response = await fetch(`${API_BASE_URL}/decks?user_id=${currentUser}`)
       const data = await response.json()
       setDecks(data.decks || [])
     } catch (error) {
@@ -122,7 +130,7 @@ function App() {
 
   const loadDeckDetails = async (deckId) => {
     try {
-      const response = await fetch(`${API_BASE}/decks/${deckId}`)
+      const response = await fetch(`${API_BASE_URL}/decks/${deckId}`)
       const data = await response.json()
       setDeckDetails(data)
     } catch (error) {
@@ -134,14 +142,14 @@ function App() {
     if (!newDeckName.trim()) return
     
     try {
-      const response = await fetch(`${API_BASE}/decks`, {
+      const response = await fetch(`${API_BASE_URL}/decks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name: newDeckName,
-          user_id: 1
+          user_id: currentUser
         })
       })
       
@@ -157,14 +165,14 @@ function App() {
 
   const buildAroundCard = async (card) => {
     try {
-      const response = await fetch(`${API_BASE}/decks/build-around/${card.scryfall_id}`, {
+      const response = await fetch(`${API_BASE_URL}/decks/build-around/${card.scryfall_id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           deck_name: `${card.name} Deck`,
-          user_id: 1
+          user_id: currentUser
         })
       })
       
@@ -182,7 +190,7 @@ function App() {
 
   const addToCollection = async (card, quantity = 1) => {
     try {
-      const response = await fetch(`${API_BASE}/collection/add`, {
+      const response = await fetch(`${API_BASE_URL}/collection/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +198,7 @@ function App() {
         body: JSON.stringify({
           scryfall_id: card.scryfall_id,
           quantity: quantity,
-          user_id: 1
+          user_id: currentUser
         })
       })
       
@@ -205,7 +213,7 @@ function App() {
 
   const updateCardQuantity = async (collectionCardId, newQuantity) => {
     try {
-      const response = await fetch(`${API_BASE}/collection/update`, {
+      const response = await fetch(`${API_BASE_URL}/collection/update`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +235,7 @@ function App() {
 
   const addCardToDeck = async (deckId, card) => {
     try {
-      const response = await fetch(`${API_BASE}/decks/${deckId}/cards`, {
+      const response = await fetch(`${API_BASE_URL}/decks/${deckId}/cards`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -245,6 +253,33 @@ function App() {
       console.error('Failed to add card to deck:', error)
     }
   }
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users`);
+      const data = await response.json();
+      setUsers(data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  }
+
+  const UserSwitcher = () => (
+    <div className="flex items-center gap-3 mb-4 p-3 bg-slate-100 rounded-lg">
+      <label className="text-sm font-medium">Current User:</label>
+      <select 
+        value={currentUser} 
+        onChange={(e) => setCurrentUser(parseInt(e.target.value))}
+        className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+      >
+        {users.map(user => (
+          <option key={user.id} value={user.id}>
+            {user.username}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   const CardDisplay = ({ 
   card, 
@@ -369,6 +404,7 @@ function App() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4">
+          <UserSwitcher />
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold">Magic Card Collection Manager</h1>
