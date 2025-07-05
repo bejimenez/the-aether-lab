@@ -1,21 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as api from './api/mtgApi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Library, Layers, TrendingUp } from 'lucide-react';
+import { Search, Library, Layers, TrendingUp, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import ThemeSwitcher from './components/ThemeSwitcher';
-import UserSwitcher from './components/UserSwitcher';
+// Remove UserSwitcher import - we no longer need it
+// import UserSwitcher from './components/UserSwitcher';
 import SearchTab from './components/SearchTab';
-import CollectionTab from './components/CollectionTab'; // Import the new component
+import CollectionTab from './components/CollectionTab';
 import DecksTab from './components/DecksTab';
 import StatsTab from './components/StatsTab';
 import CreateDeckDialog from './components/CreateDeckDialog';
+import DeckBuilder from './components/DeckBuilder';
+import Login from './components/Login';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './App.css';
-import DeckBuilder from './components/DeckBuilder'; // Import DeckBuilder if needed
 
-function App() {
-  // State Management
-  const [currentUser, setCurrentUser] = useState(1);
-  const [users, setUsers] = useState([]);
+// Main App Content Component (this is what gets rendered when user is logged in)
+function AppContent() {
+  // Get authentication data from context
+  const { user, userProfile, loading: authLoading, signOut } = useAuth();
+
+  // Remove these old user-related states - we get this from auth context now
+  // const [currentUser, setCurrentUser] = useState(1);
+  // const [users, setUsers] = useState([]);
+
+  // Keep all your existing state
   const [searchResults, setSearchResults] = useState([]);
   const [collection, setCollection] = useState([]);
   const [collectionStats, setCollectionStats] = useState({});
@@ -26,15 +36,15 @@ function App() {
   const [selectedDeck, setSelectedDeck] = useState(null);
   const [isDeckBuilderOpen, setDeckBuilderOpen] = useState(false);
 
-  // --- Data Loading ---
+  // Updated loadUserData to use userProfile.id instead of currentUser
   const loadUserData = useCallback(async () => {
-    if (!currentUser) return;
+    if (!userProfile?.id) return;
     setLoading(true);
     try {
       const [collectionData, statsData, decksData] = await Promise.all([
-        api.fetchCollection(currentUser),
-        api.fetchCollectionStats(currentUser),
-        api.fetchDecks(currentUser)
+        api.fetchCollection(userProfile.id),
+        api.fetchCollectionStats(userProfile.id),
+        api.fetchDecks(userProfile.id)
       ]);
       setCollection(collectionData.collection_cards || []);
       setCollectionStats(statsData);
@@ -44,153 +54,262 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [userProfile?.id]);
 
-  useEffect(() => {
-    api.fetchUsers()
-      .then(data => setUsers(Array.isArray(data) ? data : data.users || []))
-      .catch(err => console.error("Failed to fetch users:", err));
-  }, []);
+  // Remove the old useEffect that fetched users - we don't need it anymore
+  // useEffect(() => {
+  //   api.fetchUsers()
+  //     .then(data => setUsers(Array.isArray(data) ? data : data.users || []))
+  //     .catch(error => console.error("Failed to fetch users:", error));
+  // }, []);
 
+  // Load user data when userProfile changes
   useEffect(() => {
     loadUserData();
-  }, [currentUser, loadUserData]);
+  }, [loadUserData]);
 
   // --- Event Handlers ---
-  const handleSearch = async (query) => {
+  const handleSearch = useCallback(async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
     setLoading(true);
     try {
-      const data = await api.searchScryfallCards(query);
-      setSearchResults(data.cards || []);
+      const results = await api.searchCards(query);
+      setSearchResults(Array.isArray(results) ? results : results.data || []);
     } catch (error) {
       console.error("Search failed:", error);
       setSearchResults([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleAddCardToCollection = async (card) => {
+  const handleAddToCollection = useCallback(async (card, quantity = 1) => {
+    if (!userProfile?.id) return;
+    
     try {
-      await api.addCardToCollection(currentUser, card.scryfall_id || card.id);
-      await loadUserData(); // Refresh all user data
+      await api.addToCollection(userProfile.id, card.id, quantity);
+      await loadUserData();
     } catch (error) {
-      console.error("Failed to add card:", error);
+      console.error("Failed to add to collection:", error);
     }
-  };
+  }, [userProfile?.id, loadUserData]);
 
-  const handleUpdateQuantity = async (scryfallId, newQuantity) => {
-    const collectionCard = collection.find(c => c.card?.scryfall_id === scryfallId);
-    if (!collectionCard) return;
+  const handleRemoveFromCollection = useCallback(async (cardId) => {
+    if (!userProfile?.id) return;
+    
     try {
-      await api.updateCardInCollection(collectionCard.id, newQuantity);
-      // For a faster UI response, you could update the state locally here
-      // before re-fetching, but re-fetching ensures data consistency.
+      await api.removeFromCollection(userProfile.id, cardId);
+      await loadUserData();
+    } catch (error) {
+      console.error("Failed to remove from collection:", error);
+    }
+  }, [userProfile?.id, loadUserData]);
+
+  const handleUpdateQuantity = useCallback(async (cardId, newQuantity) => {
+    if (!userProfile?.id) return;
+    
+    try {
+      if (newQuantity <= 0) {
+        await api.removeFromCollection(userProfile.id, cardId);
+      } else {
+        await api.updateCardQuantity(userProfile.id, cardId, newQuantity);
+      }
       await loadUserData();
     } catch (error) {
       console.error("Failed to update quantity:", error);
     }
-  };
-  
-  const handleCreateDeck = async (deckName) => {
+  }, [userProfile?.id, loadUserData]);
+
+  const handleCreateDeck = useCallback(async (deckData) => {
+    if (!userProfile?.id) return;
+    
     try {
-      await api.createDeck(currentUser, deckName);
-      setCreateDeckOpen(false);
+      await api.createDeck(userProfile.id, deckData);
       await loadUserData();
+      setCreateDeckOpen(false);
     } catch (error) {
       console.error("Failed to create deck:", error);
     }
-  };
+  }, [userProfile?.id, loadUserData]);
 
-  const handleBuildAround = async (card) => {
+  const handleDeleteDeck = useCallback(async (deckId) => {
+    if (!userProfile?.id) return;
+    
     try {
-      const deckName = `${card.name} Deck`;
-      const description = `A deck built around ${card.name}.`;
-      const newDeckData = await api.createDeck(currentUser, deckName, 'casual', description);
-      await api.addCardToDeck(newDeckData.deck.id, card.scryfall_id || card.id);
+      await api.deleteDeck(deckId);
       await loadUserData();
-      setActiveTab('decks');
     } catch (error) {
-        console.error("Failed to build deck:", error);
+      console.error("Failed to delete deck:", error);
+    }
+  }, [userProfile?.id, loadUserData]);
+
+  const handleBuildAroundCard = useCallback(async (card) => {
+    if (!userProfile?.id) return;
+    
+    try {
+      const response = await api.buildDeckAroundCard(userProfile.id, card.id);
+      if (response.deck) {
+        setSelectedDeck(response.deck);
+        setDeckBuilderOpen(true);
+      }
+    } catch (error) {
+      console.error("Failed to build deck around card:", error);
+    }
+  }, [userProfile?.id]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Failed to sign out:", error);
     }
   };
 
-  const handleDeckClick = (deck) => {
-    setSelectedDeck(deck);
-    setDeckBuilderOpen(true);
-  };
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const handleCloseDeckBuilder = () => {
-    setSelectedDeck(null);
-    setDeckBuilderOpen(false);
-    // Reload data to get any changes made in the deck builder
-    loadUserData();
-  };
+  // If user is not logged in, show login component
+  if (!user) {
+    return <Login />;
+  }
 
+  // Main app content for logged-in users
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="container mx-auto p-4">
-        <header className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">The Aether Lab</h1>
-          <ThemeSwitcher />
-        </header>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header with user info and sign out */}
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Magic Card Collection</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              Welcome, {userProfile?.username || user.email}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSignOut}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+            <ThemeSwitcher />
+          </div>
+        </div>
 
-        <UserSwitcher users={users} currentUser={currentUser} onUserChange={setCurrentUser} />
+        {/* Remove the UserSwitcher component completely */}
+        {/* <UserSwitcher 
+          users={users} 
+          currentUser={currentUser} 
+          onUserChange={setCurrentUser} 
+        /> */}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        {/* Main tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="search"><Search className="w-4 h-4 mr-2" />Search</TabsTrigger>
-            <TabsTrigger value="collection"><Library className="w-4 h-4 mr-2" />Collection</TabsTrigger>
-            <TabsTrigger value="decks"><Layers className="w-4 h-4 mr-2" />Decks</TabsTrigger>
-            <TabsTrigger value="stats"><TrendingUp className="w-4 h-4 mr-2" />Statistics</TabsTrigger>
+            <TabsTrigger value="search" className="flex items-center gap-2">
+              <Search className="w-4 h-4" />
+              Search
+            </TabsTrigger>
+            <TabsTrigger value="collection" className="flex items-center gap-2">
+              <Library className="w-4 h-4" />
+              My Collection ({collection.length})
+            </TabsTrigger>
+            <TabsTrigger value="decks" className="flex items-center gap-2">
+              <Layers className="w-4 h-4" />
+              My Decks ({decks.length})
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Statistics
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="search">
+          <TabsContent value="search" className="mt-6">
             <SearchTab
               onSearch={handleSearch}
               searchResults={searchResults}
+              onAddToCollection={handleAddToCollection}
+              collection={collection}
               loading={loading}
-              onAddCard={handleAddCardToCollection}
             />
           </TabsContent>
 
-          <TabsContent value="collection">
-            {/* THIS IS THE KEY CHANGE: We are now using the CollectionTab component */}
+          <TabsContent value="collection" className="mt-6">
             <CollectionTab
               collection={collection}
+              onRemoveFromCollection={handleRemoveFromCollection}
               onUpdateQuantity={handleUpdateQuantity}
-              onBuildAround={handleBuildAround}
+              onBuildAroundCard={handleBuildAroundCard}
+              loading={loading}
             />
           </TabsContent>
 
-          <TabsContent value="decks">
-            <DecksTab 
-              decks={decks} 
-              onCreateDeckClick={() => setCreateDeckOpen(true)}
-              onDeckClick={handleDeckClick}
+          <TabsContent value="decks" className="mt-6">
+            <DecksTab
+              decks={decks}
+              onCreateDeck={() => setCreateDeckOpen(true)}
+              onSelectDeck={(deck) => {
+                setSelectedDeck(deck);
+                setDeckBuilderOpen(true);
+              }}
+              onDeleteDeck={handleDeleteDeck}
+              loading={loading}
             />
           </TabsContent>
 
-          <TabsContent value="stats">
-            <StatsTab stats={collectionStats} deckCount={decks.length} />
+          <TabsContent value="stats" className="mt-6">
+            <StatsTab
+              stats={collectionStats}
+              collection={collection}
+              decks={decks}
+              loading={loading}
+            />
           </TabsContent>
         </Tabs>
 
+        {/* Dialogs */}
         <CreateDeckDialog
           open={isCreateDeckOpen}
           onOpenChange={setCreateDeckOpen}
-          onCreate={handleCreateDeck}
+          onCreateDeck={handleCreateDeck}
         />
 
         {isDeckBuilderOpen && selectedDeck && (
-          <DeckBuilder 
+          <DeckBuilder
             deck={selectedDeck}
-            currentUser={currentUser}
-            onClose={handleCloseDeckBuilder}
+            collection={collection}
+            userProfile={userProfile} // Pass userProfile instead of currentUser
+            onClose={() => {
+              setDeckBuilderOpen(false);
+              setSelectedDeck(null);
+              loadUserData();
+            }}
           />
         )}
       </div>
     </div>
+  );
+}
+
+// Main App Component with Authentication Provider
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
