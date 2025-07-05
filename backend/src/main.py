@@ -15,7 +15,7 @@ app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'sta
 app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
 
 # Enable CORS for all routes with specific configuration
-CORS(app, origins=["http://localhost:5173", "https://the-aether-lab-production.up.railway.app"], 
+CORS(app, origins=["http://localhost:5173", "https://the-aether-lab-production.up.railway.app", "https://the-aether-lab.vercel.app"], 
      allow_headers=["Content-Type", "Authorization"], 
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
