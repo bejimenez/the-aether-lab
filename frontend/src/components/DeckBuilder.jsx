@@ -19,6 +19,7 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [addingCard, setAddingCard] = useState(null); // Track which card is being added
   const [updatingCard, setUpdatingCard] = useState(null); // Track which deck card is being updated
+  const [addingBasicLand, setAddingBasicLand] = useState(null); // Track which basic land is being added
 
   useEffect(() => {
     loadDeckDetails();
@@ -119,6 +120,32 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
     }
   };
 
+  // Basic lands data
+  const basicLands = [
+    { name: 'Plains', color: 'W' },
+    { name: 'Island', color: 'U' },
+    { name: 'Swamp', color: 'B' },
+    { name: 'Mountain', color: 'R' },
+    { name: 'Forest', color: 'G' }
+  ];
+
+  const handleAddBasicLand = async (basicLand) => {
+    try {
+      setAddingBasicLand(basicLand.name);
+      
+      // Use the new API function to add basic land
+      await api.addBasicLandToDeck(deck.id, basicLand.name);
+      
+      // Reload deck details to show the new card
+      await loadDeckDetails();
+    } catch (err) {
+      console.error('Error adding basic land:', err);
+      alert(`Failed to add ${basicLand.name}. Please try again.`);
+    } finally {
+      setAddingBasicLand(null);
+    }
+  };
+
   const handleSave = async () => {
     // For UX purposes - data is already saved automatically
     alert('Deck saved successfully!');
@@ -148,6 +175,23 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
   // Helper function to get card quantity in deck
   const getCardQuantityInDeck = (scryfallId) => {
     const deckCard = deckDetails?.cards?.find(deckCard => deckCard.card?.scryfall_id === scryfallId);
+    return deckCard?.quantity || 0;
+  };
+
+  // Helper function to check if a basic land is in the deck (by name)
+  const isBasicLandInDeck = (landName) => {
+    return deckDetails?.cards?.some(deckCard => 
+      deckCard.card?.name === landName && 
+      deckCard.card?.type_line?.includes('Basic Land')
+    );
+  };
+
+  // Helper function to get basic land quantity in deck (by name)
+  const getBasicLandQuantityInDeck = (landName) => {
+    const deckCard = deckDetails?.cards?.find(deckCard => 
+      deckCard.card?.name === landName && 
+      deckCard.card?.type_line?.includes('Basic Land')
+    );
     return deckCard?.quantity || 0;
   };
 
@@ -410,7 +454,7 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
                   </div>
 
                   {/* Collection Results */}
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
                     {collectionLoading ? (
                       <div className="text-center py-4 text-muted-foreground">
                         Loading collection...
@@ -470,6 +514,56 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
                       </div>
                     )}
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Basic Lands */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Basic Lands</CardTitle>
+                <CardDescription>Add basic lands to your deck (unlimited supply)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {basicLands.map((basicLand) => {
+                    const inDeck = isBasicLandInDeck(basicLand.name);
+                    const deckQuantity = getBasicLandQuantityInDeck(basicLand.name);
+                    
+                    const colorClasses = {
+                      'W': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+                      'U': 'bg-blue-100 text-blue-800 border-blue-300',
+                      'B': 'bg-gray-100 text-gray-800 border-gray-300',
+                      'R': 'bg-red-100 text-red-800 border-red-300',
+                      'G': 'bg-green-100 text-green-800 border-green-300'
+                    };
+                    
+                    return (
+                      <div key={basicLand.name} className={`flex items-center justify-between p-2 border rounded hover:bg-muted/50 transition-colors ${colorClasses[basicLand.color]}`}>
+                        <div className="flex flex-col flex-1">
+                          <span className="font-medium">{basicLand.name}</span>
+                          <div className="flex items-center gap-2 text-sm">
+                            <span>Basic Land</span>
+                            {inDeck && (
+                              <span className="font-medium">In Deck: {deckQuantity}</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={inDeck ? "default" : "outline"}
+                          onClick={() => handleAddBasicLand(basicLand)}
+                          disabled={addingBasicLand === basicLand.name}
+                        >
+                          {addingBasicLand === basicLand.name ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                          ) : (
+                            <Plus className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

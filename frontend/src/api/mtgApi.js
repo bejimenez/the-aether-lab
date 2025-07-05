@@ -78,3 +78,32 @@ export const removeDeckCard = (deckId, deckCardId) => {
     method: 'DELETE',
   }).then(handleResponse);
 };
+
+// Basic lands function - adds basic land to deck by searching for it first
+export const addBasicLandToDeck = async (deckId, landName) => {
+  try {
+    // First, search for the basic land to get its scryfall_id
+    const searchResponse = await searchScryfallCards(landName);
+    
+    if (!searchResponse.cards || searchResponse.cards.length === 0) {
+      throw new Error(`${landName} not found`);
+    }
+    
+    // Find the basic land (usually the first result for basic lands)
+    const basicLand = searchResponse.cards.find(card => 
+      card.type_line && card.type_line.includes('Basic Land') && 
+      card.name === landName
+    ) || searchResponse.cards[0];
+    
+    if (!basicLand) {
+      throw new Error(`Basic ${landName} not found`);
+    }
+    
+    // Add the basic land to the deck
+    return await addCardToDeck(deckId, basicLand.scryfall_id);
+    
+  } catch (error) {
+    console.error('Error adding basic land to deck:', error);
+    throw error;
+  }
+};
