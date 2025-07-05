@@ -11,7 +11,16 @@ const themes = [
 ];
 
 export const useTheme = (defaultTheme = 'light') => {
-  const [theme, setThemeState] = useState(defaultTheme);
+  // Read theme from localStorage on initialization, fallback to defaultTheme
+  const [theme, setThemeState] = useState(() => {
+    try {
+      const savedTheme = localStorage.getItem('theme');
+      return savedTheme && themes.some(t => t.value === savedTheme) ? savedTheme : defaultTheme;
+    } catch (error) {
+      console.warn('Failed to read theme from localStorage:', error);
+      return defaultTheme;
+    }
+  });
 
   useEffect(() => {
     const root = document.documentElement;
@@ -33,6 +42,12 @@ export const useTheme = (defaultTheme = 'light') => {
 
   const setTheme = (newTheme) => {
     setThemeState(newTheme);
+    // Save theme to localStorage
+    try {
+      localStorage.setItem('theme', newTheme);
+    } catch (error) {
+      console.warn('Failed to save theme to localStorage:', error);
+    }
   };
 
   return { theme, setTheme, themes };
