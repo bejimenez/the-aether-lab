@@ -3,17 +3,43 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Save, Plus, Search } from 'lucide-react';
 import * as api from '../api/mtgApi.js';
 
 const DeckBuilder = ({ deck, currentUser, onClose }) => {
   const [deckDetails, setDeckDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Collection search state
+  const [collection, setCollection] = useState([]);
+  const [collectionSearch, setCollectionSearch] = useState('');
+  const [filteredCollection, setFilteredCollection] = useState([]);
+  const [collectionLoading, setCollectionLoading] = useState(false);
+  const [addingCard, setAddingCard] = useState(null); // Track which card is being added
 
   useEffect(() => {
     loadDeckDetails();
+    loadCollection();
   }, [deck.id]);
+
+  // Filter collection based on search
+  useEffect(() => {
+    if (collectionSearch.trim() === '') {
+      setFilteredCollection(collection);
+    } else {
+      const filtered = collection.filter(item => {
+        const cardName = item.card?.name || item.name || '';
+        const cardType = item.card?.type_line || item.type_line || '';
+        
+        return cardName.toLowerCase().includes(collectionSearch.toLowerCase()) ||
+               cardType.toLowerCase().includes(collectionSearch.toLowerCase());
+      });
+      
+      setFilteredCollection(filtered);
+    }
+  }, [collection, collectionSearch]);
 
   const loadDeckDetails = async () => {
     try {
@@ -30,9 +56,54 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
     }
   };
 
+  const loadCollection = async () => {
+    try {
+      setCollectionLoading(true);
+      const data = await api.fetchCollection(currentUser);
+      
+      // Handle the actual API response structure
+      let collectionCards = [];
+      if (data.collection_cards) {
+        collectionCards = data.collection_cards;
+      } else if (data.cards) {
+        collectionCards = data.cards;
+      } else if (data.collection) {
+        collectionCards = data.collection;
+      } else if (Array.isArray(data)) {
+        collectionCards = data;
+      }
+      
+      setCollection(collectionCards);
+      setFilteredCollection(collectionCards);
+    } catch (err) {
+      console.error('Error loading collection:', err);
+      // Don't set error state, just log it - collection loading failure shouldn't break the deck builder
+    } finally {
+      setCollectionLoading(false);
+    }
+  };
+
+  const handleAddCardToDeck = async (collectionCard) => {
+    try {
+      const cardId = collectionCard.id || collectionCard.card?.id || collectionCard.card?.scryfall_id;
+      const card = collectionCard.card || collectionCard;
+      const scryfallId = card.scryfall_id || card.id;
+      
+      setAddingCard(cardId);
+      await api.addCardToDeck(deck.id, scryfallId);
+      // Reload deck details to show the new card
+      await loadDeckDetails();
+    } catch (err) {
+      console.error('Error adding card to deck:', err);
+      alert('Failed to add card to deck. Please try again.');
+    } finally {
+      setAddingCard(null);
+    }
+  };
+  // saving the deck is already handled in supabase, but we add a button and alert for UX
+  // This could be expanded to include more complex save logic if needed
   const handleSave = async () => {
-    // For now, just show a message - we'll implement saving later
-    alert('Deck saved! (Feature coming in next step)');
+    alert('Deck saved!');
   };
 
   // Helper function to sort cards by mana cost, then by name
@@ -49,6 +120,17 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
       const nameB = b.card?.name || '';
       return nameA.localeCompare(nameB);
     });
+  };
+
+  // Helper function to check if a card is already in the deck
+  const isCardInDeck = (scryfallId) => {
+    return deckDetails?.cards?.some(deckCard => deckCard.card?.scryfall_id === scryfallId);
+  };
+
+  // Helper function to get card quantity in deck
+  const getCardQuantityInDeck = (scryfallId) => {
+    const deckCard = deckDetails?.cards?.find(deckCard => deckCard.card?.scryfall_id === scryfallId);
+    return deckCard?.quantity || 0;
   };
 
   if (loading) {
@@ -252,14 +334,86 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
               </CardContent>
             </Card>
 
-            {/* Placeholder for future features */}
+            {/* Add Cards from Collection */}
             <Card>
               <CardHeader>
-                <CardTitle>Add Cards</CardTitle>
+                <CardTitle>Add Cards from Collection</CardTitle>
+                <CardDescription>Search your collection to add cards to this deck</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-4 text-muted-foreground">
-                  Card addition feature coming in Step 3!
+                <div className="space-y-4">
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search your collection..."
+                      value={collectionSearch}
+                      onChange={(e) => setCollectionSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  {/* Collection Results */}
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {collectionLoading ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Loading collection...
+                      </div>
+                    ) : filteredCollection.length > 0 ? (
+                      filteredCollection.slice(0, 20).map((collectionCard) => {
+                        // Handle different possible data structures
+                        const card = collectionCard.card || collectionCard;
+                        const quantity = collectionCard.quantity || 1;
+                        const cardId = collectionCard.id || collectionCard.card?.id || card.id;
+                        
+                        const inDeck = isCardInDeck(card?.scryfall_id);
+                        const deckQuantity = getCardQuantityInDeck(card?.scryfall_id);
+                        
+                        return (
+                          <div key={cardId} className="flex items-center justify-between p-2 border rounded hover:bg-muted/50 transition-colors">
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className="font-medium truncate">{card?.name || 'Unknown Card'}</span>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span>Owned: {quantity}</span>
+                                {inDeck && (
+                                  <span className="text-primary font-medium">In Deck: {deckQuantity}</span>
+                                )}
+                                {card?.mana_cost && (
+                                  <span className="font-mono bg-muted px-1 rounded text-xs">
+                                    {card.mana_cost}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant={inDeck ? "default" : "outline"}
+                              onClick={() => handleAddCardToDeck(collectionCard)}
+                              className="ml-2"
+                              disabled={addingCard === cardId}
+                            >
+                              {addingCard === cardId ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                              ) : (
+                                <Plus className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        {collectionSearch ? 'No cards found matching your search.' : 'Your collection is empty.'}
+                      </div>
+                    )}
+                    
+                    {/* Show message if results are truncated */}
+                    {filteredCollection.length > 20 && (
+                      <div className="text-center py-2 text-sm text-muted-foreground">
+                        Showing first 20 results. Use search to narrow down.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
