@@ -4,8 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Library, Layers, TrendingUp, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from './components/ThemeSwitcher';
-// Remove UserSwitcher import - we no longer need it
-// import UserSwitcher from './components/UserSwitcher';
 import SearchTab from './components/SearchTab';
 import CollectionTab from './components/CollectionTab';
 import DecksTab from './components/DecksTab';
@@ -20,10 +18,6 @@ import './App.css';
 function AppContent() {
   // Get authentication data from context
   const { user, userProfile, loading: authLoading, signOut } = useAuth();
-
-  // Remove these old user-related states - we get this from auth context now
-  // const [currentUser, setCurrentUser] = useState(1);
-  // const [users, setUsers] = useState([]);
 
   // Keep all your existing state
   const [searchResults, setSearchResults] = useState([]);
@@ -55,13 +49,6 @@ function AppContent() {
       setLoading(false);
     }
   }, [userProfile?.id]);
-
-  // Remove the old useEffect that fetched users - we don't need it anymore
-  // useEffect(() => {
-  //   api.fetchUsers()
-  //     .then(data => setUsers(Array.isArray(data) ? data : data.users || []))
-  //     .catch(error => console.error("Failed to fetch users:", error));
-  // }, []);
 
   // Load user data when userProfile changes
   useEffect(() => {
@@ -192,7 +179,7 @@ function AppContent() {
       <div className="container mx-auto px-4 py-8">
         {/* Header with user info and sign out */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Magic Card Collection</h1>
+          <h1 className="text-3xl font-bold">The Aether Lab</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
               Welcome, {userProfile?.username || user.email}
@@ -209,13 +196,6 @@ function AppContent() {
           </div>
         </div>
 
-        {/* Remove the UserSwitcher component completely */}
-        {/* <UserSwitcher 
-          users={users} 
-          currentUser={currentUser} 
-          onUserChange={setCurrentUser} 
-        /> */}
-
         {/* Main tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
@@ -225,11 +205,11 @@ function AppContent() {
             </TabsTrigger>
             <TabsTrigger value="collection" className="flex items-center gap-2">
               <Library className="w-4 h-4" />
-              My Collection ({collection.length})
+              Collection ({collection.length})
             </TabsTrigger>
             <TabsTrigger value="decks" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
-              My Decks ({decks.length})
+              Decks ({decks.length})
             </TabsTrigger>
             <TabsTrigger value="stats" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
