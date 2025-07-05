@@ -486,6 +486,7 @@ function App() {
             <CollectionTabFixed 
               collection={collection}
               updateCardQuantity={updateCardQuantity}
+              buildAroundCard={buildAroundCard}
               currentUser={currentUser}
             />
           </TabsContent>
