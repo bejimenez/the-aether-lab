@@ -84,7 +84,7 @@ function App() {
       if (response.ok) {
         const data = await response.json()
         console.log('Collection data received:', data);
-        // FIXED: Backend returns 'collection_cards', not 'cards'
+        // Backend returns 'collection_cards' array
         setCollection(data.collection_cards || [])
       } else {
         console.error('Failed to load collection:', response.status)
@@ -101,7 +101,6 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/collection/stats?user_id=${currentUser}`)
       if (response.ok) {
         const data = await response.json()
-        // This is correct - backend returns stats directly
         setCollectionStats(data)
       } else {
         console.error('Failed to load stats:', response.status)
@@ -116,7 +115,6 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/decks?user_id=${currentUser}`)
       if (response.ok) {
         const data = await response.json()
-        // This is correct - backend returns 'decks'
         setDecks(data.decks || [])
       } else {
         console.error('Failed to load decks:', response.status)
@@ -131,10 +129,8 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/users`);
       if (response.ok) {
         const data = await response.json();
-        // Backend likely returns array directly, not {users: [...]}
         setUsers(Array.isArray(data) ? data : data.users || []);
         
-        // If no users exist, create default ones
         if ((Array.isArray(data) ? data.length : data.users?.length || 0) === 0) {
           console.log('No users found, they should be created automatically by the backend');
         }
@@ -193,56 +189,47 @@ function App() {
     }
   }
 
-  // MISSING FUNCTION #1: updateCardQuantity
+  // FIXED: updateCardQuantity - correctly uses collection_card_id and handles removal via quantity 0
   const updateCardQuantity = async (scryfall_id, newQuantity) => {
     try {
-      if (newQuantity <= 0) {
-        // Remove card from collection
-        const response = await fetch(`${API_BASE_URL}/collection/remove`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: currentUser,
-            scryfall_id: scryfall_id
-          })
-        });
-        
-        if (response.ok) {
-          loadCollection();
-          loadCollectionStats();
-        } else {
-          console.error('Failed to remove card from collection');
-        }
+      // Find the collection card by scryfall_id in the collection data
+      const collectionCard = collection.find(cc => cc.card?.scryfall_id === scryfall_id);
+      
+      if (!collectionCard) {
+        console.error('Collection card not found for scryfall_id:', scryfall_id);
+        return;
+      }
+
+      // Use the collection_card_id from the collection data
+      const response = await fetch(`${API_BASE_URL}/collection/update`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          collection_card_id: collectionCard.id,  // This is the key fix!
+          quantity: newQuantity 
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Card updated:', data.message);
+        loadCollection();
+        loadCollectionStats();
       } else {
-        // Update quantity
-        const response = await fetch(`${API_BASE_URL}/collection/update`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: currentUser,
-            scryfall_id: scryfall_id,
-            quantity: newQuantity
-          })
-        });
-        
-        if (response.ok) {
-          loadCollection();
-          loadCollectionStats();
-        } else {
-          console.error('Failed to update card quantity');
-        }
+        const errorData = await response.json();
+        console.error('Failed to update card:', errorData.error);
       }
     } catch (error) {
       console.error('Failed to update card quantity:', error);
     }
   };
 
-  // MISSING FUNCTION #2: buildAroundCard
+  // FIXED: buildAroundCard - use proper backend endpoint
   const buildAroundCard = async (card) => {
     try {
       console.log('Building deck around card:', card.name);
       
-      // Create a new deck with the card's name
+      // First create a deck with the card's name
       const deckName = `${card.name} Deck`;
       const response = await fetch(`${API_BASE_URL}/decks`, {
         method: 'POST',
@@ -256,10 +243,11 @@ function App() {
       });
       
       if (response.ok) {
-        const newDeck = await response.json();
+        const newDeckData = await response.json();
+        const newDeck = newDeckData.deck;
         
         // Add the focus card to the deck
-        await addCardToDeck(card, newDeck.deck);
+        await addCardToDeck(card, newDeck);
         
         // Reload decks to show the new one
         loadDecks();
@@ -276,7 +264,7 @@ function App() {
     }
   };
 
-  // MISSING FUNCTION #3: addCardToDeck (THE MAIN MISSING FUNCTION)
+  // FIXED: addCardToDeck - corrected API structure
   const addCardToDeck = async (card, deck) => {
     try {
       const response = await fetch(`${API_BASE_URL}/decks/${deck.id}/cards`, {
@@ -298,7 +286,7 @@ function App() {
         
         // If we're viewing deck details, reload those too
         if (deckDetails && deckDetails.id === deck.id) {
-          // Reload deck details if needed
+          // Could add deck detail reloading here if needed
         }
       } else {
         const errorData = await response.json();
