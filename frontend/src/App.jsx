@@ -194,36 +194,50 @@ function App() {
   }
 
   const updateCardQuantity = async (cardId, newQuantity) => {
-    try {
-      if (newQuantity <= 0) {
-        // Remove card from collection
-        const response = await fetch(`${API_BASE_URL}/collection/${cardId}`, {
-          method: 'DELETE'
-        })
-        if (response.ok) {
-          loadCollection()
-          loadCollectionStats()
-        }
-      } else {
-        // Update quantity
-        const response = await fetch(`${API_BASE_URL}/collection/${cardId}`, {
+  try {
+    if (newQuantity <= 0) {
+      // Remove card from collection - need to find collection_card_id first
+      const collectionCard = collection.find(cc => cc.card?.scryfall_id === cardId);
+      if (collectionCard) {
+        const response = await fetch(`${API_BASE_URL}/collection/update`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quantity: newQuantity })
-        })
+          body: JSON.stringify({ 
+            collection_card_id: collectionCard.id,
+            quantity: 0 
+          })
+        });
         if (response.ok) {
-          loadCollection()
-          loadCollectionStats()
+          loadCollection();
+          loadCollectionStats();
         }
       }
-    } catch (error) {
-      console.error('Failed to update card:', error)
+    } else {
+      // Update quantity
+      const collectionCard = collection.find(cc => cc.card?.scryfall_id === cardId);
+      if (collectionCard) {
+        const response = await fetch(`${API_BASE_URL}/collection/update`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            collection_card_id: collectionCard.id,
+            quantity: newQuantity 
+          })
+        });
+        if (response.ok) {
+          loadCollection();
+          loadCollectionStats();
+        }
+      }
     }
+  } catch (error) {
+    console.error('Failed to update card:', error);
   }
+}
 
   const addCardToCollection = async (card) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/collection`, {
+      const response = await fetch(`${API_BASE_URL}/collection/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
