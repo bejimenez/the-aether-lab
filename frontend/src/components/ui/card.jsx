@@ -34,8 +34,10 @@ const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
 ))
 CardTitle.displayName = "CardTitle"
 
+// --- THIS IS THE FIX ---
+// Changed from <p> to <div> to allow for nested block elements.
 const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
-  <p
+  <div // <-- It is now a <div> instead of a <p>
     ref={ref}
     className={cn("text-sm text-muted-foreground", className)}
     {...props}
