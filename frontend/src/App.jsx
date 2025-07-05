@@ -10,8 +10,22 @@ import { Select, SelectOption } from '@/components/ui/select.jsx'
 import { Search, Filter, X, SortAsc, SortDesc, Grid, List, Plus, Minus, Library, TrendingUp, Layers, Hammer, Palette, User } from 'lucide-react'
 import './App.css'
 
-// Use environment variable or fall back to production URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://the-aether-lab-production.up.railway.app/api'
+const getApiBaseUrl = () => {
+  // Check for Vite environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Fallback for production
+  if (import.meta.env.PROD) {
+    return 'https://your-railway-app-name.up.railway.app/api';
+  }
+  
+  // Development fallback
+  return 'http://localhost:5001/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 function App() {
   const [currentUser, setCurrentUser] = useState(1); // Default to user 1
