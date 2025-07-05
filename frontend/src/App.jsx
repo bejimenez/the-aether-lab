@@ -10,8 +10,8 @@ import { Select, SelectOption } from '@/components/ui/select.jsx'
 import { Search, Filter, X, SortAsc, SortDesc, Grid, List, Plus, Minus, Library, TrendingUp, Layers, Hammer, Palette, User } from 'lucide-react'
 import './App.css'
 
-const API_BASE = '/api'
-const API_BASE_URL = 'https://the-aether-lab-production.up.railway.app'
+// Use environment variable or fall back to production URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://the-aether-lab-production.up.railway.app/api'
 
 function App() {
   const [currentUser, setCurrentUser] = useState(1); // Default to user 1
@@ -46,63 +46,32 @@ function App() {
     
     // Add new theme class (except for light which uses :root)
     if (theme !== 'light') {
-      document.documentElement.classList.add(theme)
+      document.documentElement.classList.add(`theme-${theme}`)
     }
-    
-    // Store preference
-    localStorage.setItem('theme', theme)
     setCurrentTheme(theme)
   }
 
   useEffect(() => {
-    // Fetch users on app load
     fetchUsers()
   }, [])
 
-  // Load theme on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light'
-    setTheme(savedTheme)
-  }, [])
-
-  // Debounced search function
-  useEffect(() => {
-    if (searchQuery.trim().length > 2) {
-      const timeoutId = setTimeout(() => {
-        searchCards(searchQuery)
-      }, 400)
-      return () => clearTimeout(timeoutId)
-    } else {
-      setSearchResults([])
+    if (currentUser) {
+      loadCollection()
+      loadCollectionStats()
+      loadDecks()
     }
-  }, [searchQuery])
-
-  // Load data on component mount
-  useEffect(() => {
-    loadCollection()
-    loadCollectionStats()
-    loadDecks()
-  }, [])
-
-  const searchCards = async (query) => {
-    setLoading(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/cards/search?q=${encodeURIComponent(query)}`)
-      const data = await response.json()
-      setSearchResults(data.cards || [])
-    } catch (error) {
-      console.error('Search failed:', error)
-      setSearchResults([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [currentUser])
 
   const loadCollection = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/collection/search?user_id=${currentUser}`)
-      const data = await response.json()
-      setCollection(data.collection_cards || [])
+      if (response.ok) {
+        const data = await response.json()
+        setCollection(data.cards || [])
+      } else {
+        console.error('Failed to load collection:', response.status)
+      }
     } catch (error) {
       console.error('Failed to load collection:', error)
     }
@@ -111,8 +80,12 @@ function App() {
   const loadCollectionStats = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/collection/stats?user_id=${currentUser}`)
-      const data = await response.json()
-      setCollectionStats(data)
+      if (response.ok) {
+        const data = await response.json()
+        setCollectionStats(data)
+      } else {
+        console.error('Failed to load stats:', response.status)
+      }
     } catch (error) {
       console.error('Failed to load stats:', error)
     }
@@ -121,84 +94,128 @@ function App() {
   const loadDecks = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/decks?user_id=${currentUser}`)
-      const data = await response.json()
-      setDecks(data.decks || [])
+      if (response.ok) {
+        const data = await response.json()
+        setDecks(data.decks || [])
+      } else {
+        console.error('Failed to load decks:', response.status)
+      }
     } catch (error) {
       console.error('Failed to load decks:', error)
     }
   }
 
-  const loadDeckDetails = async (deckId) => {
+  const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/decks/${deckId}`)
-      const data = await response.json()
-      setDeckDetails(data)
-    } catch (error) {
-      console.error('Failed to load deck details:', error)
-    }
-  }
-
-  const createDeck = async () => {
-    if (!newDeckName.trim()) return
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/decks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newDeckName,
-          user_id: currentUser
-        })
-      })
-      
+      const response = await fetch(`${API_BASE_URL}/users`);
       if (response.ok) {
-        setNewDeckName('')
-        setShowCreateDeck(false)
-        loadDecks()
+        const data = await response.json();
+        setUsers(data);
+        // If no users exist, create default ones
+        if (data.length === 0) {
+          await createDefaultUsers()
+        }
+      } else {
+        console.error('Error fetching users:', response.status);
+        // Try to create default users if endpoint fails
+        await createDefaultUsers()
       }
     } catch (error) {
-      console.error('Failed to create deck:', error)
+      console.error('Error fetching users:', error);
+      // Fallback to default users for development
+      setUsers([
+        { id: 1, username: 'Player1', email: 'player1@example.com' },
+        { id: 2, username: 'Player2', email: 'player2@example.com' }
+      ]);
     }
   }
 
-  const buildAroundCard = async (card) => {
+  const createDefaultUsers = async () => {
+    const defaultUsers = [
+      { username: 'Player1', email: 'player1@example.com' },
+      { username: 'Player2', email: 'player2@example.com' }
+    ];
+
+    for (const user of defaultUsers) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(user)
+        });
+        if (response.ok) {
+          const newUser = await response.json();
+          console.log('Created user:', newUser);
+        }
+      } catch (error) {
+        console.error('Error creating user:', error);
+      }
+    }
+    // Refresh users list
+    fetchUsers();
+  }
+
+  const searchCards = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    setLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/decks/build-around/${card.scryfall_id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          deck_name: `${card.name} Deck`,
-          user_id: currentUser
-        })
-      })
-      
+      const response = await fetch(`${API_BASE_URL}/cards/search?q=${encodeURIComponent(query)}`)
       if (response.ok) {
         const data = await response.json()
-        loadDecks()
-        setActiveTab('decks')
-        setSelectedDeck(data.deck.id)
-        loadDeckDetails(data.deck.id)
+        setSearchResults(data.cards || [])
+      } else {
+        console.error('Search failed:', response.status)
+        setSearchResults([])
       }
     } catch (error) {
-      console.error('Failed to build deck:', error)
+      console.error('Search error:', error)
+      setSearchResults([])
+    } finally {
+      setLoading(false)
     }
   }
 
-  const addToCollection = async (card, quantity = 1) => {
+  const updateCardQuantity = async (cardId, newQuantity) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/collection/add`, {
+      if (newQuantity <= 0) {
+        // Remove card from collection
+        const response = await fetch(`${API_BASE_URL}/collection/${cardId}`, {
+          method: 'DELETE'
+        })
+        if (response.ok) {
+          loadCollection()
+          loadCollectionStats()
+        }
+      } else {
+        // Update quantity
+        const response = await fetch(`${API_BASE_URL}/collection/${cardId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantity: newQuantity })
+        })
+        if (response.ok) {
+          loadCollection()
+          loadCollectionStats()
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update card:', error)
+    }
+  }
+
+  const addCardToCollection = async (card) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/collection`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scryfall_id: card.scryfall_id,
-          quantity: quantity,
-          user_id: currentUser
+          user_id: currentUser,
+          scryfall_id: card.scryfall_id || card.id,
+          quantity: 1
         })
       })
       
@@ -211,61 +228,9 @@ function App() {
     }
   }
 
-  const updateCardQuantity = async (collectionCardId, newQuantity) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/collection/update`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          collection_card_id: collectionCardId,
-          quantity: newQuantity
-        })
-      })
-      
-      if (response.ok) {
-        loadCollection()
-        loadCollectionStats()
-      }
-    } catch (error) {
-      console.error('Failed to update card:', error)
-    }
-  }
-
-  const addCardToDeck = async (deckId, card) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/decks/${deckId}/cards`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          scryfall_id: card.scryfall_id,
-          quantity: 1
-        })
-      })
-      
-      if (response.ok) {
-        loadDeckDetails(deckId)
-      }
-    } catch (error) {
-      console.error('Failed to add card to deck:', error)
-    }
-  }
-
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/users`);
-      const data = await response.json();
-      setUsers(data);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  }
-
   const UserSwitcher = () => (
     <div className="flex items-center gap-3 mb-4 p-3 bg-slate-100 rounded-lg">
+      <User className="w-4 h-4" />
       <label className="text-sm font-medium">Current User:</label>
       <select 
         value={currentUser} 
@@ -282,16 +247,16 @@ function App() {
   );
 
   const CardDisplay = ({ 
-  card, 
-  showAddButton = false, 
-  showBuildAround = false, 
-  showAddToDeck = false,
-  collectionCard = null,
-  updateCardQuantity = null,
-  buildAroundCard = null,
-  addCardToDeck = null,
-  selectedDeck = null
-}) => (
+    card, 
+    showAddButton = false, 
+    showBuildAround = false, 
+    showAddToDeck = false,
+    collectionCard = null,
+    updateCardQuantity = null,
+    buildAroundCard = null,
+    addCardToDeck = null,
+    selectedDeck = null
+  }) => (
     <Card className="w-full max-w-sm">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
@@ -315,133 +280,96 @@ function App() {
             className="w-full h-48 object-cover rounded-md mb-3"
           />
         )}
+        
         <div className="space-y-2">
-          <p className="text-sm font-medium">{card.type_line}</p>
+          <p className="text-sm text-muted-foreground">{card.type_line}</p>
+          
           {card.oracle_text && (
-            <p className="text-sm text-muted-foreground line-clamp-3">
-              {card.oracle_text}
-            </p>
+            <p className="text-sm">{card.oracle_text}</p>
           )}
-          {card.colors && card.colors.length > 0 && (
-            <div className="flex gap-1">
-              {card.colors.map(color => (
-                <Badge key={color} variant="outline" className="text-xs">
-                  {color}
-                </Badge>
-              ))}
-            </div>
-          )}
+          
           {card.power && card.toughness && (
-            <p className="text-sm font-medium">
-              Power/Toughness: {card.power}/{card.toughness}
+            <p className="text-sm font-semibold">
+              {card.power}/{card.toughness}
             </p>
           )}
         </div>
-        
-        <div className="space-y-2 mt-3">
+
+        <div className="flex gap-2 mt-4">
           {showAddButton && (
             <Button 
-              onClick={() => addToCollection(card)} 
-              className="w-full"
+              onClick={() => addCardToCollection(card)}
               size="sm"
+              className="flex-1"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-1" />
               Add to Collection
             </Button>
           )}
           
-          {showBuildAround && (
-            <Button 
-              onClick={() => buildAroundCard(card)} 
-              className="w-full"
-              size="sm"
-              variant="outline"
-            >
-              <Hammer className="w-4 h-4 mr-2" />
-              Build Deck Around This
-            </Button>
-          )}
-          
-          {showAddToDeck && selectedDeck && (
-            <Button 
-              onClick={() => addCardToDeck(selectedDeck, card)} 
-              className="w-full"
-              size="sm"
-              variant="outline"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add to Deck
-            </Button>
-          )}
-        </div>
-        
-        {collectionCard && (
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-sm font-medium">Quantity: {collectionCard.quantity}</span>
-            <div className="flex gap-2">
-              <Button 
-                size="sm" 
+          {collectionCard && updateCardQuantity && (
+            <div className="flex items-center gap-2">
+              <Button
                 variant="outline"
+                size="sm"
                 onClick={() => updateCardQuantity(collectionCard.id, collectionCard.quantity - 1)}
               >
                 <Minus className="w-4 h-4" />
               </Button>
-              <Button 
-                size="sm" 
+              <span className="px-2 py-1 bg-muted rounded text-sm min-w-[2rem] text-center">
+                {collectionCard.quantity}
+              </span>
+              <Button
                 variant="outline"
+                size="sm"
                 onClick={() => updateCardQuantity(collectionCard.id, collectionCard.quantity + 1)}
               >
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
-  )
+  );
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <UserSwitcher />
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold">Magic Card Collection Manager</h1>
-              <p className="text-muted-foreground">Manage your Magic: The Gathering card collection and build decks</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Palette className="w-4 h-4" />
-              <Select 
-                value={currentTheme} 
-                onChange={(e) => setTheme(e.target.value)}
-                className="w-48"
-              >
-                {themes.map(theme => (
-                  <SelectOption key={theme.value} value={theme.value}>
-                    {theme.icon} {theme.label}
-                  </SelectOption>
-                ))}
-              </Select>
-            </div>
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Magic Card Collection</h1>
+          
+          <div className="flex items-center gap-4">
+            {/* Theme Selector */}
+            <select 
+              value={currentTheme} 
+              onChange={(e) => setTheme(e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+            >
+              {themes.map(theme => (
+                <option key={theme.value} value={theme.value}>
+                  {theme.icon} {theme.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+        <UserSwitcher />
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
             <TabsTrigger value="search" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
               Search Cards
             </TabsTrigger>
             <TabsTrigger value="collection" className="flex items-center gap-2">
               <Library className="w-4 h-4" />
-              My Collection
+              My Collection ({collection.length})
             </TabsTrigger>
             <TabsTrigger value="decks" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
-              My Decks
+              My Decks ({decks.length})
             </TabsTrigger>
             <TabsTrigger value="stats" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
@@ -449,220 +377,158 @@ function App() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="search" className="space-y-4">
-            <div className="flex gap-4">
-              <div className="flex-1">
+          <TabsContent value="search">
+            <div className="space-y-4">
+              <div className="flex gap-2">
                 <Input
                   placeholder="Search for Magic cards..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
+                  onKeyPress={(e) => e.key === 'Enter' && searchCards(searchQuery)}
+                  className="flex-1"
                 />
+                <Button onClick={() => searchCards(searchQuery)} disabled={loading}>
+                  {loading ? 'Searching...' : 'Search'}
+                </Button>
               </div>
+
+              {searchResults.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {searchResults.map(card => (
+                    <CardDisplay
+                      key={card.scryfall_id || card.id}
+                      card={card}
+                      showAddButton={true}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-            
-            {loading && (
-              <div className="text-center py-8">
-                <p>Searching cards...</p>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {searchResults.map((card) => (
-                <CardDisplay 
-                  key={card.scryfall_id} 
-                  card={card} 
-                  showAddButton={true}
-                />
-              ))}
-            </div>
-            
-            {searchQuery.length > 2 && !loading && searchResults.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No cards found for "{searchQuery}"</p>
-              </div>
-            )}
           </TabsContent>
 
-          <TabsContent value="collection" className="space-y-4">
-            <CollectionTabFixed
+          <TabsContent value="collection">
+            <CollectionTabFixed 
               collection={collection}
-              CardDisplay={CardDisplay}
               updateCardQuantity={updateCardQuantity}
-              buildAroundCard={buildAroundCard}
-              selectedDeck={selectedDeck}
-              addCardToDeck={addCardToDeck}
+              currentUser={currentUser}
             />
           </TabsContent>
 
-          <TabsContent value="decks" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-semibold">My Decks</h2>
-              <Dialog open={showCreateDeck} onOpenChange={setShowCreateDeck}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Deck
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Deck</DialogTitle>
-                    <DialogDescription>
-                      Enter a name for your new deck.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <Input
-                      placeholder="Deck name..."
-                      value={newDeckName}
-                      onChange={(e) => setNewDeckName(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                      <Button onClick={createDeck} className="flex-1">
-                        Create Deck
-                      </Button>
-                      <Button variant="outline" onClick={() => setShowCreateDeck(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {decks.map((deck) => (
-                <Card 
-                  key={deck.id} 
-                  className={`cursor-pointer transition-colors ${selectedDeck === deck.id ? 'ring-2 ring-primary' : ''}`}
-                  onClick={() => {
-                    setSelectedDeck(deck.id)
-                    loadDeckDetails(deck.id)
-                  }}
-                >
-                  <CardHeader>
-                    <CardTitle className="text-lg">{deck.name}</CardTitle>
-                    <CardDescription>{deck.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-between items-center">
-                      <Badge variant="outline">{deck.format}</Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(deck.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            
-            {selectedDeck && deckDetails && (
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle>{deckDetails.deck.name}</CardTitle>
-                  <CardDescription>{deckDetails.deck.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">{deckDetails.statistics.total_cards}</div>
-                      <div className="text-sm text-muted-foreground">Total Cards</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">{deckDetails.statistics.mainboard_cards}</div>
-                      <div className="text-sm text-muted-foreground">Mainboard</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">{deckDetails.statistics.sideboard_cards}</div>
-                      <div className="text-sm text-muted-foreground">Sideboard</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">{Object.keys(deckDetails.statistics.color_distribution).length}</div>
-                      <div className="text-sm text-muted-foreground">Colors</div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {deckDetails.cards.map((deckCard) => (
-                      <div key={deckCard.id} className="relative">
-                        <CardDisplay 
-                          card={deckCard.card}
-                        />
-                        <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
-                          {deckCard.quantity}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {decks.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">You haven't created any decks yet. Create your first deck!</p>
+          <TabsContent value="decks">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">My Decks</h2>
+                <Button onClick={() => setShowCreateDeck(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Deck
+                </Button>
               </div>
-            )}
+
+              {decks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No decks yet. Create your first deck!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {decks.map(deck => (
+                    <Card key={deck.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                      <CardHeader>
+                        <CardTitle>{deck.name}</CardTitle>
+                        <CardDescription>{deck.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>Format: {deck.format}</span>
+                          <span>Updated: {new Date(deck.updated_at).toLocaleDateString()}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
-          <TabsContent value="stats" className="space-y-4">
-            <h2 className="text-2xl font-semibold">Collection Statistics</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Cards</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{collectionStats.total_cards || 0}</div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Unique Cards</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{collectionStats.unique_cards || 0}</div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Decks</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{decks.length}</div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {collectionStats.color_distribution && (
+          <TabsContent value="stats">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Color Distribution</CardTitle>
+                  <CardTitle>Collection Overview</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {collectionStats.color_distribution.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center">
-                        <span className="text-sm">
-                          {item.colors && item.colors.length > 0 ? item.colors.join(', ') : 'Colorless'}
-                        </span>
-                        <Badge variant="secondary">{item.count}</Badge>
-                      </div>
-                    ))}
+                    <div className="flex justify-between">
+                      <span>Total Cards:</span>
+                      <span className="font-semibold">{collectionStats.total_cards || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Unique Cards:</span>
+                      <span className="font-semibold">{collectionStats.unique_cards || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Decks:</span>
+                      <span className="font-semibold">{decks.length}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            )}
+            </div>
           </TabsContent>
         </Tabs>
-      </main>
+
+        {/* Create Deck Dialog */}
+        <Dialog open={showCreateDeck} onOpenChange={setShowCreateDeck}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Deck</DialogTitle>
+              <DialogDescription>
+                Enter a name for your new deck
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                placeholder="Deck name"
+                value={newDeckName}
+                onChange={(e) => setNewDeckName(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button 
+                  onClick={async () => {
+                    if (newDeckName.trim()) {
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/decks`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            name: newDeckName,
+                            user_id: currentUser,
+                            format: 'casual'
+                          })
+                        });
+                        if (response.ok) {
+                          setNewDeckName('');
+                          setShowCreateDeck(false);
+                          loadDecks();
+                        }
+                      } catch (error) {
+                        console.error('Failed to create deck:', error);
+                      }
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  Create Deck
+                </Button>
+                <Button variant="outline" onClick={() => setShowCreateDeck(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }
 
 export default App
-
