@@ -3,11 +3,19 @@ import requests
 import time
 from src.models.user import db
 from src.models.card import Card, CollectionCard
+from src.middleware.auth import require_auth
 
 cards_bp = Blueprint('cards', __name__)
 
 # Scryfall API base URL
 SCRYFALL_API_BASE = 'https://api.scryfall.com'
+
+@cards_bp.route("/collection/<int:user_id>", methods=["GET"])
+@require_auth
+def get_collection(user_id):
+    # Verify user can only access their own collection
+    if request.current_user.id != user_id:
+        return jsonify({"error": "Unauthorized"}), 403
 
 @cards_bp.route('/cards/search', methods=['GET'])
 def search_cards():
