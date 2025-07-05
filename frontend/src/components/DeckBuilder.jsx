@@ -1,10 +1,10 @@
-// frontend/src/components/DeckBuilder.jsx
+// Create this as: frontend/src/components/DeckBuilder.jsx
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Search, Minus, Trash2 } from 'lucide-react';
 import * as api from '../api/mtgApi.js';
 
 const DeckBuilder = ({ deck, currentUser, onClose }) => {
@@ -18,6 +18,7 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
   const [filteredCollection, setFilteredCollection] = useState([]);
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [addingCard, setAddingCard] = useState(null); // Track which card is being added
+  const [updatingCard, setUpdatingCard] = useState(null); // Track which deck card is being updated
 
   useEffect(() => {
     loadDeckDetails();
@@ -100,10 +101,27 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
       setAddingCard(null);
     }
   };
-  // saving the deck is already handled in supabase, but we add a button and alert for UX
-  // This could be expanded to include more complex save logic if needed
+
+  const handleUpdateDeckCardQuantity = async (deckCard, newQuantity) => {
+    try {
+      setUpdatingCard(deckCard.id);
+      
+      // Use updateDeckCard for all quantity changes (including removal when quantity is 0)
+      await api.updateDeckCard(deck.id, deckCard.id, newQuantity);
+      
+      // Reload deck details to show the updated quantities
+      await loadDeckDetails();
+    } catch (err) {
+      console.error('Error updating card quantity:', err);
+      alert('Failed to update card quantity. Please try again.');
+    } finally {
+      setUpdatingCard(null);
+    }
+  };
+
   const handleSave = async () => {
-    alert('Deck saved!');
+    // For UX purposes - data is already saved automatically
+    alert('Deck saved successfully!');
   };
 
   // Helper function to sort cards by mana cost, then by name
@@ -201,9 +219,37 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
                     {deckDetails.cards?.length > 0 ? (
                       sortCardsByManaAndName(deckDetails.cards).map((deckCard) => (
                         <div key={deckCard.id} className="flex items-center justify-between p-3 border rounded hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-lg min-w-[3rem]">{deckCard.quantity}x</span>
-                            <div className="flex flex-col">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateDeckCardQuantity(deckCard, deckCard.quantity - 1)}
+                                disabled={updatingCard === deckCard.id}
+                                className="h-8 w-8 p-0"
+                              >
+                                {updatingCard === deckCard.id ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                                ) : (
+                                  <Minus className="w-3 h-3" />
+                                )}
+                              </Button>
+                              <span className="font-bold text-lg min-w-[3rem] text-center">{deckCard.quantity}x</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateDeckCardQuantity(deckCard, deckCard.quantity + 1)}
+                                disabled={updatingCard === deckCard.id}
+                                className="h-8 w-8 p-0"
+                              >
+                                {updatingCard === deckCard.id ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                                ) : (
+                                  <Plus className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </div>
+                            <div className="flex flex-col flex-1">
                               <span className="font-medium">{deckCard.card?.name || 'Unknown Card'}</span>
                               <span className="text-sm text-muted-foreground">
                                 {deckCard.card?.type_line || ''}
@@ -221,6 +267,16 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
                             <div className="text-sm text-muted-foreground">
                               CMC: {deckCard.card?.cmc || 0}
                             </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUpdateDeckCardQuantity(deckCard, 0)}
+                              disabled={updatingCard === deckCard.id}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              title="Remove card from deck"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </div>
                         </div>
                       ))
