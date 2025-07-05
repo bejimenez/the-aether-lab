@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge.jsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx'
+import CollectionTabFixed from './components/CollectionTab.jsx'
 import { Select, SelectOption } from '@/components/ui/select.jsx'
-import { Search, Plus, Minus, Library, TrendingUp, Layers, Hammer, Palette } from 'lucide-react'
+import { Search, Filter, X, SortAsc, SortDesc, Grid, List, Plus, Minus, Library, TrendingUp, Layers, Hammer, Palette } from 'lucide-react'
 import './App.css'
 
 const API_BASE = '/api'
@@ -245,7 +246,17 @@ function App() {
     }
   }
 
-  const CardDisplay = ({ card, showAddButton = false, collectionCard = null, showBuildAround = false, showAddToDeck = false }) => (
+  const CardDisplay = ({ 
+  card, 
+  showAddButton = false, 
+  showBuildAround = false, 
+  showAddToDeck = false,
+  collectionCard = null,
+  updateCardQuantity = null,
+  buildAroundCard = null,
+  addCardToDeck = null,
+  selectedDeck = null
+}) => (
     <Card className="w-full max-w-sm">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
@@ -438,30 +449,14 @@ function App() {
           </TabsContent>
 
           <TabsContent value="collection" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-semibold">My Collection</h2>
-              <Badge variant="secondary">
-                {collection.length} unique cards
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {collection.map((collectionCard) => (
-                <CardDisplay 
-                  key={collectionCard.id} 
-                  card={collectionCard.card} 
-                  collectionCard={collectionCard}
-                  showBuildAround={true}
-                  showAddToDeck={selectedDeck ? true : false}
-                />
-              ))}
-            </div>
-            
-            {collection.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Your collection is empty. Search for cards to add them!</p>
-              </div>
-            )}
+            <CollectionTabFixed
+              collection={collection}
+              CardDisplay={CardDisplay}
+              updateCardQuantity={updateCardQuantity}
+              buildAroundCard={buildAroundCard}
+              selectedDeck={selectedDeck}
+              addCardToDeck={addCardToDeck}
+            />
           </TabsContent>
 
           <TabsContent value="decks" className="space-y-4">
