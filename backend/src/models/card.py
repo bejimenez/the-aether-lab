@@ -12,8 +12,8 @@ class Card(db.Model):
     cmc = db.Column(db.Integer)
     type_line = db.Column(db.String(255))
     oracle_text = db.Column(db.Text)
-    colors = db.Column(db.JSON)  # Store as JSON array
-    keywords = db.Column(db.JSON)  # Store as JSON array
+    colors = db.Column(db.JSON)  # PostgreSQL supports JSON
+    keywords = db.Column(db.JSON)  # PostgreSQL supports JSON
     image_uri = db.Column(db.String(500))
     local_image_url = db.Column(db.String(500))
     power = db.Column(db.String(10))
@@ -21,8 +21,8 @@ class Card(db.Model):
     rarity = db.Column(db.String(20))
     set_code = db.Column(db.String(10))
     set_name = db.Column(db.String(100))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __repr__(self):
         return f'<Card {self.name}>'
@@ -53,11 +53,11 @@ class CollectionCard(db.Model):
     __tablename__ = 'collection_cards'
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     scryfall_id = db.Column(db.String(36), db.ForeignKey('cards_cache.scryfall_id'), nullable=False, index=True)
     quantity = db.Column(db.Integer, default=1, nullable=False)
-    added_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    added_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     card = db.relationship('Card', backref='collection_entries')
@@ -84,12 +84,12 @@ class Deck(db.Model):
     __tablename__ = 'decks'
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     format = db.Column(db.String(50))  # 'standard', 'modern', 'commander', etc.
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __repr__(self):
         return f'<Deck {self.name}>'
@@ -114,7 +114,7 @@ class DeckCard(db.Model):
     scryfall_id = db.Column(db.String(36), db.ForeignKey('cards_cache.scryfall_id'), nullable=False, index=True)
     quantity = db.Column(db.Integer, default=1, nullable=False)
     card_type = db.Column(db.String(20), default='mainboard')  # 'mainboard' or 'sideboard'
-    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    added_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
     
     # Relationships
     deck = db.relationship('Deck', backref='cards')
@@ -136,4 +136,3 @@ class DeckCard(db.Model):
             'added_at': self.added_at.isoformat() if self.added_at else None,
             'card': self.card.to_dict() if self.card else None
         }
-
