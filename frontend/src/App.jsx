@@ -485,8 +485,11 @@ function App() {
           <TabsContent value="collection">
             <CollectionTabFixed 
               collection={collection}
+              CardDisplay={CardDisplay}  // ADD THIS - pass the CardDisplay component
               updateCardQuantity={updateCardQuantity}
               buildAroundCard={buildAroundCard}
+              selectedDeck={selectedDeck}
+              addCardToDeck={addCardToDeck}
               currentUser={currentUser}
             />
           </TabsContent>
