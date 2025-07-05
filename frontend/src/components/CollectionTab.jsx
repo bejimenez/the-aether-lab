@@ -44,29 +44,48 @@ const CollectionTab = ({
 
   // Filter and sort the collection based on state
   const filteredAndSortedCollection = useMemo(() => {
-    if (!Array.isArray(collection)) return [];
+  if (!Array.isArray(collection)) return [];
 
-    let filtered = collection.filter(({ card }) => {
-      if (!card) return false;
-      if (searchQuery && !card.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-      if (selectedColor !== 'all' && (selectedColor === 'Colorless' ? card.colors?.length > 0 : !card.colors?.includes(selectedColor))) return false;
-      if (selectedType !== 'all' && !card.type_line.includes(selectedType)) return false;
-      if (selectedRarity !== 'all' && card.rarity !== selectedRarity) return false;
-      return true;
-    });
-
-    return filtered.sort((a, b) => {
-      const cardA = a.card;
-      const cardB = b.card;
-      let aValue, bValue;
-      switch (sortBy) {
-        case 'cmc': aValue = cardA.cmc || 0; bValue = cardB.cmc || 0; break;
-        case 'quantity': aValue = a.quantity || 0; bValue = b.quantity || 0; break;
-        default: aValue = (cardA.name || '').toLowerCase(); bValue = (cardB.name || '').toLowerCase();
+  let filtered = collection.filter((collectionCard) => {
+    // Handle the nested structure properly
+    const card = collectionCard.card;
+    if (!card) return false;
+    
+    if (searchQuery && !card.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (selectedColor !== 'all') {
+      if (selectedColor === 'Colorless') {
+        if (card.colors && card.colors.length > 0) return false;
+      } else {
+        if (!card.colors || !card.colors.includes(selectedColor)) return false;
       }
-      return sortOrder === 'asc' ? (aValue < bValue ? -1 : 1) : (aValue > bValue ? -1 : 1);
-    });
-  }, [collection, searchQuery, selectedColor, selectedType, selectedRarity, sortBy, sortOrder]);
+    }
+    if (selectedType !== 'all' && !card.type_line.includes(selectedType)) return false;
+    if (selectedRarity !== 'all' && card.rarity !== selectedRarity) return false;
+    return true;
+  });
+
+  return filtered.sort((a, b) => {
+    const cardA = a.card;
+    const cardB = b.card;
+    let aValue, bValue;
+    
+    switch (sortBy) {
+      case 'cmc': 
+        aValue = cardA.cmc || 0; 
+        bValue = cardB.cmc || 0; 
+        break;
+      case 'quantity': 
+        aValue = a.quantity || 0; 
+        bValue = b.quantity || 0; 
+        break;
+      default: 
+        aValue = (cardA.name || '').toLowerCase(); 
+        bValue = (cardB.name || '').toLowerCase();
+    }
+    
+    return sortOrder === 'asc' ? (aValue < bValue ? -1 : 1) : (aValue > bValue ? -1 : 1);
+  });
+}, [collection, searchQuery, selectedColor, selectedType, selectedRarity, sortBy, sortOrder]);
 
   const hasActiveFilters = searchQuery || selectedColor !== 'all' || selectedType !== 'all' || selectedRarity !== 'all';
   const clearFilters = () => {
@@ -146,11 +165,11 @@ const CollectionTab = ({
       {/* Collection Grid/List */}
       {filteredAndSortedCollection.length > 0 ? (
         <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1 md:grid-cols-2'}`}>
-          {filteredAndSortedCollection.map((cc) => (
+          {filteredAndSortedCollection.map((collectionCard) => (
             <CardDisplay
-              key={cc.id}
-              card={cc.card}
-              collectionCard={cc}
+              key={collectionCard.card.scryfall_id}
+              card={collectionCard.card}
+              collectionCard={collectionCard}  // Pass the full collection card object
               onUpdateQuantity={onUpdateQuantity}
               onBuildAround={onBuildAround}
             />

@@ -57,33 +57,36 @@ function AppContent() {
 
   // --- Event Handlers ---
   const handleSearch = useCallback(async (query) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const results = await api.searchCards(query);
-      setSearchResults(Array.isArray(results) ? results : results.data || []);
-    } catch (error) {
-      console.error("Search failed:", error);
-      setSearchResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  if (!query.trim()) {
+    setSearchResults([]);
+    return;
+  }
+  
+  setLoading(true);
+  try {
+    const results = await api.searchCards(query);
+    // FIX: The backend returns {cards: [...], source: 'api'|'cache'}
+    // So we need to access results.cards, not results.data
+    setSearchResults(Array.isArray(results) ? results : results.cards || []);
+  } catch (error) {
+    console.error("Search failed:", error);
+    setSearchResults([]);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   const handleAddToCollection = useCallback(async (card, quantity = 1) => {
-    if (!userProfile?.id) return;
-    
-    try {
-      await api.addToCollection(userProfile.id, card.id, quantity);
-      await loadUserData();
-    } catch (error) {
-      console.error("Failed to add to collection:", error);
-    }
-  }, [userProfile?.id, loadUserData]);
+  if (!userProfile?.id) return;
+  
+  try {
+    // FIX: Use card.scryfall_id instead of card.id
+    await api.addToCollection(userProfile.id, card.scryfall_id, quantity);
+    await loadUserData();
+  } catch (error) {
+    console.error("Failed to add to collection:", error);
+  }
+}, [userProfile?.id, loadUserData]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
     if (!userProfile?.id) return;
@@ -221,8 +224,7 @@ function AppContent() {
             <SearchTab
               onSearch={handleSearch}
               searchResults={searchResults}
-              onAddToCollection={handleAddToCollection}
-              collection={collection}
+              onAddCard={handleAddToCollection}
               loading={loading}
             />
           </TabsContent>
