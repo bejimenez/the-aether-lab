@@ -1,5 +1,10 @@
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -12,10 +17,11 @@ from src.routes.cards import cards_bp
 from src.routes.decks import decks_bp
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
-app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'asdf#FGSgvasgf$5$WGT')
+
 
 # Enable CORS for all routes with specific configuration
-CORS(app, origins=["http://localhost:5173", "https://the-aether-lab-production.up.railway.app", "https://the-aether-lab.vercel.app"], 
+CORS(app, origins=["http://localhost:5173", "https://the-aether-lab-production.up.railway.app", "https://the-aether-lab.vercel.app", "https://*.vercel.app"], 
      allow_headers=["Content-Type", "Authorization"], 
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
@@ -23,8 +29,8 @@ app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(cards_bp, url_prefix='/api')
 app.register_blueprint(decks_bp, url_prefix='/api')
 
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
+# Use PostgreSQL instead of SQLite
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
