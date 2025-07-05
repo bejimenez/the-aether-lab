@@ -18,7 +18,7 @@ const getApiBaseUrl = () => {
   
   // Fallback for production
   if (import.meta.env.PROD) {
-    return 'https://your-railway-app-name.up.railway.app/api';
+    return 'https://the-aether-lab-production.up.railway.app/api';
   }
   
   // Development fallback
@@ -78,216 +78,236 @@ function App() {
   }, [currentUser])
 
   const loadCollection = async () => {
-  try {
-    console.log('Loading collection for user:', currentUser);
-    const response = await fetch(`${API_BASE_URL}/collection/search?user_id=${currentUser}`)
-    if (response.ok) {
-      const data = await response.json()
-      console.log('Collection data received:', data);
-      // FIXED: Backend returns 'collection_cards', not 'cards'
-      setCollection(data.collection_cards || [])
-    } else {
-      console.error('Failed to load collection:', response.status)
-      const errorText = await response.text();
-      console.error('Error details:', errorText);
+    try {
+      console.log('Loading collection for user:', currentUser);
+      const response = await fetch(`${API_BASE_URL}/collection/search?user_id=${currentUser}`)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Collection data received:', data);
+        // FIXED: Backend returns 'collection_cards', not 'cards'
+        setCollection(data.collection_cards || [])
+      } else {
+        console.error('Failed to load collection:', response.status)
+        const errorText = await response.text();
+        console.error('Error details:', errorText);
+      }
+    } catch (error) {
+      console.error('Failed to load collection:', error)
     }
-  } catch (error) {
-    console.error('Failed to load collection:', error)
   }
-}
 
   const loadCollectionStats = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/collection/stats?user_id=${currentUser}`)
-    if (response.ok) {
-      const data = await response.json()
-      // This is correct - backend returns stats directly
-      setCollectionStats(data)
-    } else {
-      console.error('Failed to load stats:', response.status)
+    try {
+      const response = await fetch(`${API_BASE_URL}/collection/stats?user_id=${currentUser}`)
+      if (response.ok) {
+        const data = await response.json()
+        // This is correct - backend returns stats directly
+        setCollectionStats(data)
+      } else {
+        console.error('Failed to load stats:', response.status)
+      }
+    } catch (error) {
+      console.error('Failed to load stats:', error)
     }
-  } catch (error) {
-    console.error('Failed to load stats:', error)
   }
-}
 
   const loadDecks = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/decks?user_id=${currentUser}`)
-    if (response.ok) {
-      const data = await response.json()
-      // This is correct - backend returns 'decks'
-      setDecks(data.decks || [])
-    } else {
-      console.error('Failed to load decks:', response.status)
+    try {
+      const response = await fetch(`${API_BASE_URL}/decks?user_id=${currentUser}`)
+      if (response.ok) {
+        const data = await response.json()
+        // This is correct - backend returns 'decks'
+        setDecks(data.decks || [])
+      } else {
+        console.error('Failed to load decks:', response.status)
+      }
+    } catch (error) {
+      console.error('Failed to load decks:', error)
     }
-  } catch (error) {
-    console.error('Failed to load decks:', error)
   }
-}
 
   const fetchUsers = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/users`);
-    if (response.ok) {
-      const data = await response.json();
-      // Backend likely returns array directly, not {users: [...]}
-      setUsers(Array.isArray(data) ? data : data.users || []);
-      
-      // If no users exist, create default ones
-      if ((Array.isArray(data) ? data : data.users || []).length === 0) {
-        await createDefaultUsers()
-      }
-    } else {
-      console.error('Error fetching users:', response.status);
-      // Try to create default users if endpoint fails
-      await createDefaultUsers()
-    }
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    // Fallback to default users for development
-    setUsers([
-      { id: 1, username: 'Player1', email: 'player1@example.com' },
-      { id: 2, username: 'Player2', email: 'player2@example.com' }
-    ]);
-  }
-}
-
-  const createDefaultUsers = async () => {
-    const defaultUsers = [
-      { username: 'Player1', email: 'player1@example.com' },
-      { username: 'Player2', email: 'player2@example.com' }
-    ];
-
-    for (const user of defaultUsers) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/users`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(user)
-        });
-        if (response.ok) {
-          const newUser = await response.json();
-          console.log('Created user:', newUser);
+    try {
+      const response = await fetch(`${API_BASE_URL}/users`);
+      if (response.ok) {
+        const data = await response.json();
+        // Backend likely returns array directly, not {users: [...]}
+        setUsers(Array.isArray(data) ? data : data.users || []);
+        
+        // If no users exist, create default ones
+        if ((Array.isArray(data) ? data.length : data.users?.length || 0) === 0) {
+          console.log('No users found, they should be created automatically by the backend');
         }
-      } catch (error) {
-        console.error('Error creating user:', error);
+      } else {
+        console.error('Failed to fetch users:', response.status);
       }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
     }
-    // Refresh users list
-    fetchUsers();
-  }
+  };
 
-  const buildAroundCard = async (card) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/decks/build-around/${card.scryfall_id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: currentUser,
-        deck_name: `${card.name} Deck`
-      })
-    });
+  const searchCards = async () => {
+    if (!searchQuery.trim()) return;
     
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Deck created:', data.message);
-      loadDecks();
-      setActiveTab('decks'); // Switch to decks tab
-    } else {
-      const errorData = await response.json();
-      console.error('Failed to build deck:', errorData.error);
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/cards/search?q=${encodeURIComponent(searchQuery)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.cards || []);
+      } else {
+        console.error('Search failed:', response.status);
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Failed to build deck:', error);
-  }
-}
-
-  const searchCards = async (query) => {
-  if (!query.trim()) {
-    setSearchResults([])
-    return
-  }
-
-  setLoading(true)
-  try {
-    const response = await fetch(`${API_BASE_URL}/cards/search?q=${encodeURIComponent(query)}`)
-    if (response.ok) {
-      const data = await response.json()
-      // This is correct - backend returns 'cards'
-      setSearchResults(data.cards || [])
-    } else {
-      console.error('Search failed:', response.status)
-      setSearchResults([])
-    }
-  } catch (error) {
-    console.error('Search error:', error)
-    setSearchResults([])
-  } finally {
-    setLoading(false)
-  }
-}
-
-  const updateCardQuantity = async (cardId, newQuantity) => {
-  try {
-    // Find the collection card by scryfall_id
-    const collectionCard = collection.find(cc => cc.card?.scryfall_id === cardId);
-    
-    if (!collectionCard) {
-      console.error('Collection card not found for cardId:', cardId);
-      return;
-    }
-
-    // FIXED: Use '/collection/update' with collection_card_id
-    const response = await fetch(`${API_BASE_URL}/collection/update`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        collection_card_id: collectionCard.id,
-        quantity: newQuantity 
-      })
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Card updated:', data.message);
-      loadCollection();
-      loadCollectionStats();
-    } else {
-      const errorData = await response.json();
-      console.error('Failed to update card:', errorData.error);
-    }
-  } catch (error) {
-    console.error('Failed to update card:', error)
-  }
-}
+  };
 
   const addCardToCollection = async (card) => {
-  try {
-    // FIXED: Use '/collection/add' endpoint, not '/collection'
-    const response = await fetch(`${API_BASE_URL}/collection/add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: currentUser,
-        scryfall_id: card.scryfall_id || card.id,
-        quantity: 1
-      })
-    })
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Card added:', data.message);
-      loadCollection();
-      loadCollectionStats();
-    } else {
-      const errorData = await response.json();
-      console.error('Failed to add card:', errorData.error);
+    try {
+      const response = await fetch(`${API_BASE_URL}/collection/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser,
+          scryfall_id: card.scryfall_id || card.id,
+          quantity: 1
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Card added:', data.message);
+        loadCollection();
+        loadCollectionStats();
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to add card:', errorData.error);
+      }
+    } catch (error) {
+      console.error('Failed to add card:', error)
     }
-  } catch (error) {
-    console.error('Failed to add card:', error)
   }
-}
+
+  // MISSING FUNCTION #1: updateCardQuantity
+  const updateCardQuantity = async (scryfall_id, newQuantity) => {
+    try {
+      if (newQuantity <= 0) {
+        // Remove card from collection
+        const response = await fetch(`${API_BASE_URL}/collection/remove`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUser,
+            scryfall_id: scryfall_id
+          })
+        });
+        
+        if (response.ok) {
+          loadCollection();
+          loadCollectionStats();
+        } else {
+          console.error('Failed to remove card from collection');
+        }
+      } else {
+        // Update quantity
+        const response = await fetch(`${API_BASE_URL}/collection/update`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUser,
+            scryfall_id: scryfall_id,
+            quantity: newQuantity
+          })
+        });
+        
+        if (response.ok) {
+          loadCollection();
+          loadCollectionStats();
+        } else {
+          console.error('Failed to update card quantity');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update card quantity:', error);
+    }
+  };
+
+  // MISSING FUNCTION #2: buildAroundCard
+  const buildAroundCard = async (card) => {
+    try {
+      console.log('Building deck around card:', card.name);
+      
+      // Create a new deck with the card's name
+      const deckName = `${card.name} Deck`;
+      const response = await fetch(`${API_BASE_URL}/decks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: deckName,
+          user_id: currentUser,
+          format: 'casual',
+          description: `Deck built around ${card.name}`
+        })
+      });
+      
+      if (response.ok) {
+        const newDeck = await response.json();
+        
+        // Add the focus card to the deck
+        await addCardToDeck(card, newDeck.deck);
+        
+        // Reload decks to show the new one
+        loadDecks();
+        
+        // Switch to the decks tab
+        setActiveTab('decks');
+        
+        console.log('Deck created successfully around', card.name);
+      } else {
+        console.error('Failed to create deck:', response.status);
+      }
+    } catch (error) {
+      console.error('Failed to build deck around card:', error);
+    }
+  };
+
+  // MISSING FUNCTION #3: addCardToDeck (THE MAIN MISSING FUNCTION)
+  const addCardToDeck = async (card, deck) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/decks/${deck.id}/cards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scryfall_id: card.scryfall_id || card.id,
+          quantity: 1,
+          card_type: 'mainboard'
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Card added to deck:', data.message);
+        
+        // Reload decks to update card counts
+        loadDecks();
+        
+        // If we're viewing deck details, reload those too
+        if (deckDetails && deckDetails.id === deck.id) {
+          // Reload deck details if needed
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to add card to deck:', errorData.error);
+      }
+    } catch (error) {
+      console.error('Failed to add card to deck:', error);
+    }
+  };
 
   const UserSwitcher = () => (
     <div className="flex items-center gap-3 mb-4 p-3 bg-slate-100 rounded-lg">
@@ -308,106 +328,106 @@ function App() {
   );
 
   const CardDisplay = ({ 
-  card, 
-  showAddButton = false, 
-  showBuildAround = false, 
-  showAddToDeck = false,
-  collectionCard = null,
-  updateCardQuantity = null,
-  buildAroundCard = null,
-  addCardToDeck = null,
-  selectedDeck = null
-}) => (
-  <Card className="w-full max-w-sm">
-    <CardHeader className="pb-2">
-      <div className="flex justify-between items-start">
-        <CardTitle className="text-lg">{card.name}</CardTitle>
-        <Badge variant="secondary">{card.rarity}</Badge>
-      </div>
-      <CardDescription className="text-sm">
-        {card.mana_cost && (
-          <span className="font-mono">{card.mana_cost}</span>
-        )}
-        {card.type_line && (
-          <div className="mt-1">{card.type_line}</div>
-        )}
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      {card.image_uri && (
-        <img 
-          src={card.image_uri} 
-          alt={card.name}
-          className="w-full h-auto rounded-md mb-3"
-          loading="lazy"
-        />
-      )}
-      
-      {/* Card text */}
-      {card.oracle_text && (
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-          {card.oracle_text}
-        </p>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex flex-col gap-2">
-        {showAddButton && (
-          <Button 
-            onClick={() => addCardToCollection(card)} 
-            className="w-full"
-          >
-            Add to Collection
-          </Button>
+    card, 
+    showAddButton = false, 
+    showBuildAround = false, 
+    showAddToDeck = false,
+    collectionCard = null,
+    updateCardQuantity = null,
+    buildAroundCard = null,
+    addCardToDeck = null,
+    selectedDeck = null
+  }) => (
+    <Card className="w-full max-w-sm">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-lg">{card.name}</CardTitle>
+          <Badge variant="secondary">{card.rarity}</Badge>
+        </div>
+        <CardDescription className="text-sm">
+          {card.mana_cost && (
+            <span className="font-mono">{card.mana_cost}</span>
+          )}
+          {card.type_line && (
+            <div className="mt-1">{card.type_line}</div>
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {card.image_uri && (
+          <img 
+            src={card.image_uri} 
+            alt={card.name}
+            className="w-full h-auto rounded-md mb-3"
+            loading="lazy"
+          />
         )}
         
-        {collectionCard && updateCardQuantity && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => updateCardQuantity(card.scryfall_id, collectionCard.quantity - 1)}
-              disabled={collectionCard.quantity <= 1}
-            >
-              <Minus className="w-4 h-4" />
-            </Button>
-            <span className="px-3 py-1 bg-muted rounded text-sm font-medium">
-              {collectionCard.quantity}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => updateCardQuantity(card.scryfall_id, collectionCard.quantity + 1)}
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
+        {/* Card text */}
+        {card.oracle_text && (
+          <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded mb-3 line-clamp-3">
+            {card.oracle_text}
+          </p>
         )}
 
-        {showBuildAround && buildAroundCard && (
-          <Button 
-            variant="outline" 
-            onClick={() => buildAroundCard(card)}
-            className="w-full"
-          >
-            <Hammer className="w-4 h-4 mr-2" />
-            Build Deck Around This
-          </Button>
-        )}
+        {/* Action buttons */}
+        <div className="flex flex-col gap-2">
+          {showAddButton && (
+            <Button 
+              onClick={() => addCardToCollection(card)} 
+              className="w-full"
+            >
+              Add to Collection
+            </Button>
+          )}
+          
+          {collectionCard && updateCardQuantity && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateCardQuantity(card.scryfall_id, collectionCard.quantity - 1)}
+                disabled={collectionCard.quantity <= 1}
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
+              <span className="px-3 py-1 bg-muted rounded text-sm font-medium">
+                {collectionCard.quantity}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateCardQuantity(card.scryfall_id, collectionCard.quantity + 1)}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
 
-        {showAddToDeck && addCardToDeck && selectedDeck && (
-          <Button 
-            variant="outline" 
-            onClick={() => addCardToDeck(card, selectedDeck)}
-            className="w-full"
-          >
-            Add to {selectedDeck.name}
-          </Button>
-        )}
-      </div>
-    </CardContent>
-  </Card>
-);
+          {showBuildAround && buildAroundCard && (
+            <Button 
+              variant="outline" 
+              onClick={() => buildAroundCard(card)}
+              className="w-full"
+            >
+              <Hammer className="w-4 h-4 mr-2" />
+              Build Deck Around This
+            </Button>
+          )}
+
+          {showAddToDeck && addCardToDeck && selectedDeck && (
+            <Button 
+              variant="outline" 
+              onClick={() => addCardToDeck(card, selectedDeck)}
+              className="w-full"
+            >
+              Add to {selectedDeck.name}
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -415,8 +435,9 @@ function App() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Magic Card Collection</h1>
           
-          <div className="flex items-center gap-4">
-            {/* Theme Selector */}
+          {/* Theme Selector */}
+          <div className="flex items-center gap-3">
+            <Palette className="w-4 h-4" />
             <select 
               value={currentTheme} 
               onChange={(e) => setTheme(e.target.value)}
@@ -431,21 +452,22 @@ function App() {
           </div>
         </div>
 
+        {/* User Switcher */}
         <UserSwitcher />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="search" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
-              Search Cards
+              Search
             </TabsTrigger>
             <TabsTrigger value="collection" className="flex items-center gap-2">
               <Library className="w-4 h-4" />
-              My Collection ({collection.length})
+              Collection
             </TabsTrigger>
             <TabsTrigger value="decks" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
-              My Decks ({decks.length})
+              Decks
             </TabsTrigger>
             <TabsTrigger value="stats" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
@@ -460,10 +482,11 @@ function App() {
                   placeholder="Search for Magic cards..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && searchCards(searchQuery)}
+                  onKeyPress={(e) => e.key === 'Enter' && searchCards()}
                   className="flex-1"
                 />
-                <Button onClick={() => searchCards(searchQuery)} disabled={loading}>
+                <Button onClick={searchCards} disabled={loading}>
+                  <Search className="w-4 h-4 mr-2" />
                   {loading ? 'Searching...' : 'Search'}
                 </Button>
               </div>
@@ -485,7 +508,7 @@ function App() {
           <TabsContent value="collection">
             <CollectionTabFixed 
               collection={collection}
-              CardDisplay={CardDisplay}  // ADD THIS - pass the CardDisplay component
+              CardDisplay={CardDisplay}
               updateCardQuantity={updateCardQuantity}
               buildAroundCard={buildAroundCard}
               selectedDeck={selectedDeck}
