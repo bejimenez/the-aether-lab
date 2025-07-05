@@ -10,6 +10,7 @@ import DecksTab from './components/DecksTab';
 import StatsTab from './components/StatsTab';
 import CreateDeckDialog from './components/CreateDeckDialog';
 import './App.css';
+import DeckBuilder from './components/DeckBuilder'; // Import DeckBuilder if needed
 
 function App() {
   // State Management
@@ -22,6 +23,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('search');
   const [isCreateDeckOpen, setCreateDeckOpen] = useState(false);
+  const [selectedDeck, setSelectedDeck] = useState(null);
+  const [isDeckBuilderOpen, setDeckBuilderOpen] = useState(false);
 
   // --- Data Loading ---
   const loadUserData = useCallback(async () => {
@@ -112,6 +115,18 @@ function App() {
     }
   };
 
+  const handleDeckClick = (deck) => {
+    setSelectedDeck(deck);
+    setDeckBuilderOpen(true);
+  };
+
+  const handleCloseDeckBuilder = () => {
+    setSelectedDeck(null);
+    setDeckBuilderOpen(false);
+    // Reload data to get any changes made in the deck builder
+    loadUserData();
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-4">
@@ -149,7 +164,11 @@ function App() {
           </TabsContent>
 
           <TabsContent value="decks">
-            <DecksTab decks={decks} onCreateDeckClick={() => setCreateDeckOpen(true)} />
+            <DecksTab 
+              decks={decks} 
+              onCreateDeckClick={() => setCreateDeckOpen(true)}
+              onDeckClick={handleDeckClick}
+            />
           </TabsContent>
 
           <TabsContent value="stats">
@@ -162,6 +181,14 @@ function App() {
           onOpenChange={setCreateDeckOpen}
           onCreate={handleCreateDeck}
         />
+
+        {isDeckBuilderOpen && selectedDeck && (
+          <DeckBuilder 
+            deck={selectedDeck}
+            currentUser={currentUser}
+            onClose={handleCloseDeckBuilder}
+          />
+        )}
       </div>
     </div>
   );

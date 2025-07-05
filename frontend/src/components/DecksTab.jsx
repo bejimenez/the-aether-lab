@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 
-const DecksTab = ({ decks, onCreateDeckClick }) => (
+const DecksTab = ({ decks, onCreateDeckClick, onDeckClick }) => (
   <div className="space-y-4">
     <div className="flex justify-between items-center">
       <h2 className="text-2xl font-bold">My Decks</h2>
@@ -19,7 +19,11 @@ const DecksTab = ({ decks, onCreateDeckClick }) => (
     ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {decks.map(deck => (
-          <Card key={deck.id} className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card 
+            key={deck.id} 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => onDeckClick(deck)}
+          >
             <CardHeader>
               <CardTitle>{deck.name}</CardTitle>
               <CardDescription>{deck.description || 'No description'}</CardDescription>

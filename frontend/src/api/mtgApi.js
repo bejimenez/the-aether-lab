@@ -44,6 +44,11 @@ export const updateCardInCollection = (collectionCardId, newQuantity) => {
 // --- Deck Management ---
 export const fetchDecks = (userId) => fetch(`${API_BASE_URL}/decks?user_id=${userId}`).then(handleResponse);
 
+export const fetchDeckDetails = (deckId) => {
+  return fetch(`${API_BASE_URL}/decks/${deckId}`)
+    .then(handleResponse);
+};
+
 export const createDeck = (userId, deckName, format = 'casual', description = '') => {
   return fetch(`${API_BASE_URL}/decks`, {
     method: 'POST',
@@ -57,5 +62,19 @@ export const addCardToDeck = (deckId, scryfallId, cardType = 'mainboard') => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ scryfall_id: scryfallId, quantity: 1, card_type: cardType }),
+  }).then(handleResponse);
+};
+
+export const updateDeckCard = (deckId, deckCardId, quantity) => {
+  return fetch(`${API_BASE_URL}/decks/${deckId}/cards/${deckCardId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quantity }),
+  }).then(handleResponse);
+};
+
+export const removeDeckCard = (deckId, deckCardId) => {
+  return fetch(`${API_BASE_URL}/decks/${deckId}/cards/${deckCardId}`, {
+    method: 'DELETE',
   }).then(handleResponse);
 };
