@@ -59,14 +59,13 @@ function AppContent() {
   const handleSearch = useCallback(async (query) => {
   if (!query.trim()) {
     setSearchResults([]);
+    setLoading(false);
     return;
   }
   
   setLoading(true);
   try {
     const results = await api.searchCards(query);
-    // FIX: The backend returns {cards: [...], source: 'api'|'cache'}
-    // So we need to access results.cards, not results.data
     setSearchResults(Array.isArray(results) ? results : results.cards || []);
   } catch (error) {
     console.error("Search failed:", error);
