@@ -106,6 +106,24 @@ const CollectionTab = ({
     }
   };
 
+  // Wrapper function to handle quantity updates and refresh the page
+  const handleUpdateQuantity = useCallback(async (cardId, newQuantity) => {
+    if (!onUpdateQuantity) return;
+    
+    try {
+      // Call the parent's update function
+      await onUpdateQuantity(cardId, newQuantity);
+      
+      // Refresh the current page to show the updated quantities
+      await loadCollectionPage(currentPage);
+      
+    } catch (error) {
+      console.error('Failed to update quantity:', error);
+      // Still refresh the page to ensure UI consistency
+      await loadCollectionPage(currentPage);
+    }
+  }, [onUpdateQuantity, currentPage, userId, perPage, searchQuery, selectedColor, selectedType, selectedRarity, sortBy, sortOrder]);
+
   // Derive filter options from collection index
   const filterOptions = useMemo(() => {
     const colors = new Set();
@@ -314,7 +332,7 @@ const CollectionTab = ({
                 key={collectionCard.card.scryfall_id}
                 card={collectionCard.card}
                 collectionCard={collectionCard}
-                onUpdateQuantity={onUpdateQuantity}
+                onUpdateQuantity={handleUpdateQuantity}
                 onBuildAround={onBuildAroundCard}
               />
             ))}
