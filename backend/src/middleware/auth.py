@@ -8,7 +8,7 @@ def verify_supabase_token(token):
     """Verify token with Supabase Auth API"""
     try:
         # Get Supabase URL and anon key from environment
-        supabase_url = os.environ.get('SUPABASE_URL', 'https://vbkzzbrrvullqlcdpxhb.supabase.co')
+        supabase_url = os.environ.get('DATABASE_URL', 'https://vbkzzbrrvullqlcdpxhb.supabase.co')
         supabase_anon_key = os.environ.get('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZia3p6YnJydnVsbHFsY2RweGhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2ODg2MDIsImV4cCI6MjA2NjI2NDYwMn0.LV1Omb_hRcz0hYJ5K7gH6rEZjjnr3CZV8dbsE22K8TQ')
         
         # Verify the token with Supabase
