@@ -210,12 +210,11 @@ export const removeDeckCard = (deckId, deckCardId) => {
 };
 
 // New function for "build around this card" functionality
-export const buildDeckAroundCard = async (userId, cardId) => {
-  return makeAuthenticatedRequest(`${API_BASE_URL}/decks/build-around`, {
+export const buildDeckAroundCard = async (userId, scryfallId) => {
+  return makeAuthenticatedRequest(`${API_BASE_URL}/decks/build-around/${scryfallId}`, {
     method: 'POST',
     body: JSON.stringify({ 
-      user_id: userId,
-      card_id: cardId
+      user_id: userId
     }),
   });
 };

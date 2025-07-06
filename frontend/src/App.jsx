@@ -140,7 +140,7 @@ function AppContent() {
     if (!userProfile?.id) return;
     
     try {
-      const response = await api.buildDeckAroundCard(userProfile.id, card.id);
+      const response = await api.buildDeckAroundCard(userProfile.id, card.scryfall_id);
       if (response.deck) {
         setSelectedDeck(response.deck);
         setDeckBuilderOpen(true);
