@@ -241,8 +241,8 @@ function AppContent() {
           <TabsContent value="decks" className="mt-6">
             <DecksTab
               decks={decks}
-              onCreateDeck={() => setCreateDeckOpen(true)}
-              onSelectDeck={(deck) => {
+              onCreateDeckClick={() => setCreateDeckOpen(true)}
+              onDeckClick={(deck) => {
                 setSelectedDeck(deck);
                 setDeckBuilderOpen(true);
               }}
