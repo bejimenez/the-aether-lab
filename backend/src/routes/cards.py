@@ -56,6 +56,20 @@ def search_cards():
             existing_card = Card.query.filter_by(scryfall_id=card_data['id']).first()
             
             if not existing_card:
+                # Extract image URLs - prioritize art_crop, fallback to normal, then to None
+                image_uris = card_data.get('image_uris', {})
+                image_uri = None
+                
+                if image_uris:
+                    # Prefer art_crop for compact display
+                    image_uri = image_uris.get('art_crop')
+                    if not image_uri:
+                        # Fallback to normal if art_crop not available
+                        image_uri = image_uris.get('small')
+                    if not image_uri:
+                        # Final fallback to small
+                        image_uri = image_uris.get('normal')
+                
                 # Create new card entry
                 card = Card(
                     scryfall_id=card_data['id'],
@@ -66,7 +80,7 @@ def search_cards():
                     oracle_text=card_data.get('oracle_text', ''),
                     colors=card_data.get('colors', []),
                     keywords=card_data.get('keywords', []),
-                    image_uri=card_data.get('image_uris', {}).get('normal', ''),
+                    image_uri=image_uri,  # Now stores art_crop URL
                     power=card_data.get('power'),
                     toughness=card_data.get('toughness'),
                     rarity=card_data.get('rarity', ''),
