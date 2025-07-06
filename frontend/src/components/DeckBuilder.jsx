@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Save, Plus, Search, Minus, Trash2 } from 'lucide-react';
 import * as api from '../api/mtgApi.js';
+import ManaCost from './ManaCost';
 
 const DeckBuilder = ({ deck, currentUser, onClose }) => {
   const [deckDetails, setDeckDetails] = useState(null);
@@ -303,9 +304,12 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
                           <div className="flex items-center gap-3">
                             <div className="text-sm text-muted-foreground">
                               {deckCard.card?.mana_cost && (
-                                <span className="font-mono bg-muted px-2 py-1 rounded">
-                                  {deckCard.card.mana_cost}
-                                </span>
+                                <div className="flex items-center gap-2 bg-muted px-2 py-1 rounded">
+                                  <ManaCost 
+                                    manaCost={deckCard.card.mana_cost} 
+                                    size="sm" 
+                                  />
+                                </div>
                               )}
                             </div>
                             <div className="text-sm text-muted-foreground">

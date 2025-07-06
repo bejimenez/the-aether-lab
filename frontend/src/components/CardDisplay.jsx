@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Plus, Minus, Hammer } from 'lucide-react';
 import { useState } from 'react';
+import ManaCost from './ManaCost';
 
 // Generic Magic card back image URL - you can host this locally or use a CDN
 const MAGIC_CARD_BACK_URL = 'https://cards.scryfall.io/large/back/0/0/0000000-0000-0000-0000-000000000000.jpg';
@@ -36,7 +37,15 @@ const CardDisplay = ({
           <Badge variant="secondary">{card.rarity}</Badge>
         </div>
         <CardDescription className="text-sm">
-          {card.mana_cost && <span className="font-mono">{card.mana_cost}</span>}
+          {/* Replace text mana cost with visual symbols */}
+          {card.mana_cost && (
+            <div className="flex items-center gap-2 mb-1">
+              <ManaCost manaCost={card.mana_cost} size="sm" />
+              <span className="text-xs text-muted-foreground">
+                CMC: {card.cmc || 0}
+              </span>
+            </div>
+          )}
           {card.type_line && <div className="mt-1">{card.type_line}</div>}
         </CardDescription>
       </CardHeader>
