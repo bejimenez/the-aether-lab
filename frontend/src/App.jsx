@@ -12,12 +12,16 @@ import CreateDeckDialog from './components/CreateDeckDialog';
 import DeckBuilder from './components/DeckBuilder';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider, useToast } from './components/ui/toast';
 import './App.css';
 
 // Main App Content Component (this is what gets rendered when user is logged in)
 function AppContent() {
   // Get authentication data from context
   const { user, userProfile, loading: authLoading, signOut } = useAuth();
+  
+  // Get toast functionality
+  const { addToast } = useToast();
 
   // Keep all your existing state
   const [searchResults, setSearchResults] = useState([]);
@@ -82,10 +86,12 @@ function AppContent() {
     // FIX: Use card.scryfall_id instead of card.id
     await api.addToCollection(userProfile.id, card.scryfall_id, quantity);
     await loadUserData();
+    // Show success toast
+    addToast('Card Added!');
   } catch (error) {
     console.error("Failed to add to collection:", error);
   }
-}, [userProfile?.id, loadUserData]);
+}, [userProfile?.id, loadUserData, addToast]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
     if (!userProfile?.id) return;
@@ -289,7 +295,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </AuthProvider>
   );
 }
