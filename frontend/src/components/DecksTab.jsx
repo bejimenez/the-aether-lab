@@ -1,8 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 
-const DecksTab = ({ decks, onCreateDeckClick, onDeckClick }) => (
+const DecksTab = ({ decks, onCreateDeckClick, onDeckClick, onDeleteDeck }) => (
   <div className="space-y-4">
     <div className="flex justify-between items-center">
       <h2 className="text-2xl font-bold">My Decks</h2>
@@ -25,8 +25,26 @@ const DecksTab = ({ decks, onCreateDeckClick, onDeckClick }) => (
             onClick={() => onDeckClick(deck)}
           >
             <CardHeader>
-              <CardTitle>{deck.name}</CardTitle>
-              <CardDescription>{deck.description || 'No description'}</CardDescription>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <CardTitle>{deck.name}</CardTitle>
+                  <CardDescription>{deck.description || 'No description'}</CardDescription>
+                </div>
+                {onDeleteDeck && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteDeck(deck.id);
+                    }}
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    title="Delete deck"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex justify-between text-sm text-muted-foreground">
