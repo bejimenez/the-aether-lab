@@ -7,11 +7,11 @@ import requests
 def verify_supabase_token(token):
     """Verify token with Supabase Auth API"""
     try:
-        # Get Supabase URL and anon key from environment
-        supabase_url = os.environ.get('DATABASE_URL')
+        # Get the correct Supabase project URL (not DATABASE_URL)
+        supabase_url = os.environ.get('SUPABASE_URL', 'https://vbkzzbrrvullqlcdpxhb.supabase.co')
         supabase_anon_key = os.environ.get('SUPABASE_ANON_KEY')
         
-        # Verify the token with Supabase
+        # Verify the token with Supabase Auth API
         response = requests.get(
             f"{supabase_url}/auth/v1/user",
             headers={
@@ -23,7 +23,7 @@ def verify_supabase_token(token):
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"Token verification failed: {response.status_code}")
+            print(f"Token verification failed: {response.status_code}, Response: {response.text}")
             return None
             
     except Exception as e:
