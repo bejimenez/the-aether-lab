@@ -142,12 +142,21 @@ def add_to_collection():
         return jsonify({'error': f'Failed to add card: {str(e)}'}), 500
 
 @cards_bp.route('/collection/search', methods=['GET'])
+@require_auth
 def search_collection():
-    """Search user's collection with filters"""
-    user_id = request.args.get('user_id', 1, type=int)  # Default user_id for now
+    """Enhanced search with sorting and rarity filter"""
+    user_id = request.args.get('user_id', type=int)
+    
+    # Verify user can only access their own collection
+    if request.current_user.id != user_id:
+        return jsonify({"error": "Unauthorized"}), 403
+    
     query = request.args.get('q', '').strip()
     colors = request.args.get('colors', '').split(',') if request.args.get('colors') else []
     card_type = request.args.get('type', '').strip()
+    rarity = request.args.get('rarity', '').strip()
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 20, type=int), 100)
     
@@ -159,26 +168,52 @@ def search_collection():
         
         # Apply filters
         if query:
-            collection_query = collection_query.filter(Card.name.ilike(f'%{query}%'))
+            collection_query = collection_query.filter(
+                db.or_(
+                    Card.name.ilike(f'%{query}%'),
+                    Card.type_line.ilike(f'%{query}%'),
+                    Card.oracle_text.ilike(f'%{query}%')
+                )
+            )
         
         if colors:
-            # Filter by colors (cards that contain any of the specified colors)
             color_filters = []
             for color in colors:
                 if color.strip():
-                    color_filters.append(Card.colors.contains([color.strip().upper()]))
+                    if color == 'Colorless':
+                        color_filters.append(db.or_(Card.colors == None, Card.colors == []))
+                    else:
+                        color_filters.append(Card.colors.contains([color.strip().upper()]))
             if color_filters:
                 collection_query = collection_query.filter(db.or_(*color_filters))
         
         if card_type:
             collection_query = collection_query.filter(Card.type_line.ilike(f'%{card_type}%'))
         
+        if rarity:
+            collection_query = collection_query.filter(Card.rarity == rarity)
+        
+        # Apply sorting
+        if sort_by == 'name':
+            order_column = Card.name
+        elif sort_by == 'cmc':
+            order_column = Card.cmc
+        elif sort_by == 'quantity':
+            order_column = CollectionCard.quantity
+        else:
+            order_column = Card.name
+        
+        if sort_order == 'desc':
+            collection_query = collection_query.order_by(order_column.desc())
+        else:
+            collection_query = collection_query.order_by(order_column.asc())
+        
+        # Get total count before pagination
+        total = collection_query.count()
+        
         # Paginate results
         offset = (page - 1) * per_page
         collection_cards = collection_query.offset(offset).limit(per_page).all()
-        
-        # Get total count
-        total = collection_query.count()
         
         return jsonify({
             'collection_cards': [cc.to_dict() for cc in collection_cards],
@@ -190,6 +225,48 @@ def search_collection():
         
     except Exception as e:
         return jsonify({'error': f'Collection search failed: {str(e)}'}), 500
+
+@cards_bp.route('/collection/index', methods=['GET'])
+@require_auth
+def get_collection_index():
+    """Get a lightweight index of all cards in collection for client-side search"""
+    user_id = request.args.get('user_id', type=int)
+    
+    # Verify user can only access their own collection
+    if request.current_user.id != user_id:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    try:
+        # Get minimal data for all cards
+        collection_cards = db.session.query(
+            CollectionCard.id,
+            CollectionCard.scryfall_id,
+            Card.name,
+            Card.type_line,
+            Card.colors,
+            Card.rarity,
+            Card.cmc
+        ).join(Card).filter(
+            CollectionCard.user_id == user_id
+        ).all()
+        
+        index = [{
+            'id': cc.id,
+            'scryfall_id': cc.scryfall_id,
+            'name': cc.name,
+            'type_line': cc.type_line,
+            'colors': cc.colors,
+            'rarity': cc.rarity,
+            'cmc': cc.cmc
+        } for cc in collection_cards]
+        
+        return jsonify({
+            'index': index,
+            'total': len(index)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get collection index: {str(e)}'}), 500
 
 @cards_bp.route('/collection/update', methods=['PUT'])
 def update_collection_card():
