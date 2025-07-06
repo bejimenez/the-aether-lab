@@ -9,7 +9,7 @@ import CardDisplay from './CardDisplay'; // Import CardDisplay directly
 const CollectionTab = ({
   collection = [], // Default to empty array
   onUpdateQuantity,
-  onBuildAround,
+  onBuildAroundCard,
 }) => {
   // State for search, filters, and view
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,7 +171,7 @@ const CollectionTab = ({
               card={collectionCard.card}
               collectionCard={collectionCard}  // Pass the full collection card object
               onUpdateQuantity={onUpdateQuantity}
-              onBuildAround={onBuildAround}
+              onBuildAround={onBuildAroundCard}
             />
           ))}
         </div>
