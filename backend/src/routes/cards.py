@@ -225,6 +225,76 @@ def update_collection_card():
         db.session.rollback()
         return jsonify({'error': f'Failed to update card: {str(e)}'}), 500
 
+@cards_bp.route('/collection/update-quantity', methods=['PUT'])
+def update_card_quantity():
+    """Update card quantity in collection by user_id and card_id"""
+    data = request.get_json()
+    
+    if not data or 'user_id' not in data or 'card_id' not in data:
+        return jsonify({'error': 'user_id and card_id are required'}), 400
+    
+    user_id = data['user_id']
+    card_id = data['card_id']  # This is scryfall_id
+    new_quantity = data.get('quantity', 1)
+    
+    try:
+        # Find the collection card by user_id and scryfall_id
+        collection_card = CollectionCard.query.filter_by(
+            user_id=user_id,
+            scryfall_id=card_id
+        ).first()
+        
+        if not collection_card:
+            return jsonify({'error': 'Collection card not found'}), 404
+        
+        if new_quantity <= 0:
+            # Remove card from collection
+            db.session.delete(collection_card)
+            db.session.commit()
+            return jsonify({'message': 'Card removed from collection'})
+        else:
+            # Update quantity
+            collection_card.quantity = new_quantity
+            db.session.commit()
+            return jsonify({
+                'message': 'Card quantity updated',
+                'collection_card': collection_card.to_dict()
+            })
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to update card: {str(e)}'}), 500
+
+@cards_bp.route('/collection/remove', methods=['DELETE'])
+def remove_from_collection():
+    """Remove a card from user's collection"""
+    data = request.get_json()
+    
+    if not data or 'user_id' not in data or 'card_id' not in data:
+        return jsonify({'error': 'user_id and card_id are required'}), 400
+    
+    user_id = data['user_id']
+    card_id = data['card_id']  # This is scryfall_id
+    
+    try:
+        # Find the collection card by user_id and scryfall_id
+        collection_card = CollectionCard.query.filter_by(
+            user_id=user_id,
+            scryfall_id=card_id
+        ).first()
+        
+        if not collection_card:
+            return jsonify({'error': 'Collection card not found'}), 404
+        
+        # Remove card from collection
+        db.session.delete(collection_card)
+        db.session.commit()
+        return jsonify({'message': 'Card removed from collection'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to remove card: {str(e)}'}), 500
+
 @cards_bp.route('/collection/stats', methods=['GET'])
 def collection_stats():
     """Get collection statistics"""
