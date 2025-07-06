@@ -240,6 +240,7 @@ function AppContent() {
               onRemoveFromCollection={handleRemoveFromCollection}
               onUpdateQuantity={handleUpdateQuantity}
               onBuildAroundCard={handleBuildAroundCard}
+              userId={userProfile?.id}
               loading={loading}
             />
           </TabsContent>

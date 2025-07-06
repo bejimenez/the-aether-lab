@@ -91,8 +91,50 @@ export const searchScryfallCards = (query) => {
 export const searchCards = searchScryfallCards;
 
 // --- Collection Management (All require authentication) ---
+
+// Original fetchCollection function - still needed by App.jsx
 export const fetchCollection = (userId) => {
   return makeAuthenticatedRequest(`${API_BASE_URL}/collection/search?user_id=${userId}`);
+};
+
+// Enhanced collection fetch with pagination and filters
+export const fetchCollectionPage = (userId, options = {}) => {
+  const {
+    page = 1,
+    perPage = 20,
+    search = '',
+    colors = [],
+    type = '',
+    rarity = '',
+    sortBy = 'name',
+    sortOrder = 'asc'
+  } = options;
+
+  const params = new URLSearchParams({
+    user_id: userId,
+    page: page.toString(),
+    per_page: perPage.toString(),
+    q: search,
+    type: type,
+    sort_by: sortBy,
+    sort_order: sortOrder
+  });
+
+  // Add colors as comma-separated list if provided
+  if (colors.length > 0) {
+    params.append('colors', colors.join(','));
+  }
+
+  if (rarity) {
+    params.append('rarity', rarity);
+  }
+
+  return makeAuthenticatedRequest(`${API_BASE_URL}/collection/search?${params.toString()}`);
+};
+
+// Fetch all card IDs for search/filter (lightweight)
+export const fetchCollectionIndex = (userId) => {
+  return makeAuthenticatedRequest(`${API_BASE_URL}/collection/index?user_id=${userId}`);
 };
 
 export const fetchCollectionStats = (userId) => {
