@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import SearchTab from './components/SearchTab';
 import CollectionTab from './components/CollectionTab';
+import CardDetailsModal from './components/CardDetailsModal';
 import DecksTab from './components/DecksTab';
 import StatsTab from './components/StatsTab';
 import CreateDeckDialog from './components/CreateDeckDialog';
@@ -33,6 +34,8 @@ function AppContent() {
   const [isCreateDeckOpen, setCreateDeckOpen] = useState(false);
   const [selectedDeck, setSelectedDeck] = useState(null);
   const [isDeckBuilderOpen, setDeckBuilderOpen] = useState(false);
+  const [selectedCardForDetails, setSelectedCardForDetails] = useState(null);
+  const [isCardDetailsOpen, setCardDetailsOpen] = useState(false);
 
   // Updated loadUserData to use userProfile.id instead of currentUser
   const loadUserData = useCallback(async () => {
@@ -78,6 +81,16 @@ function AppContent() {
     setLoading(false);
   }
 }, []);
+
+  const handleShowCardDetails = (card) => {
+  setSelectedCardForDetails(card);
+  setCardDetailsOpen(true);
+};
+
+const handleCloseCardDetails = () => {
+  setCardDetailsOpen(false);
+  setSelectedCardForDetails(null);
+};
 
   const handleAddToCollection = useCallback(async (card, quantity = 1) => {
   if (!userProfile?.id) return;
@@ -288,6 +301,18 @@ function AppContent() {
           />
         )}
       </div>
+
+      {/* Card Details Modal for Search Results */}
+      {selectedCardForDetails && (
+        <CardDetailsModal
+          card={selectedCardForDetails}
+          collectionCard={collection.find(cc => cc.card.scryfall_id === selectedCardForDetails.scryfall_id)}
+          isOpen={isCardDetailsOpen}
+          onClose={handleCloseCardDetails}
+          onBuildAround={handleBuildAroundCard}
+          onUpdateQuantity={handleUpdateQuantity}
+        />
+      )}
     </div>
   );
 }

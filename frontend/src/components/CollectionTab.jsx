@@ -1,194 +1,196 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Filter, X, SortAsc, SortDesc, Grid, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import CardDisplay from './CardDisplay';
-import * as api from '../api/mtgApi';
+import CardDetailsModal from './CardDetailsModal';
+import { 
+  Search, 
+  Filter, 
+  Grid, 
+  List, 
+  X, 
+  SortAsc, 
+  SortDesc, 
+  ChevronLeft, 
+  ChevronRight 
+} from 'lucide-react';
 
-const CollectionTab = ({
-  collection = [], // This will be used only for initial load/stats
-  onUpdateQuantity,
+const CollectionTab = ({ 
+  collection, 
+  onUpdateQuantity, 
   onBuildAroundCard,
-  userId
+  loading = false 
 }) => {
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCards, setTotalCards] = useState(0);
-  const [perPage] = useState(20); // Fixed at 20 for optimal performance
+  // State for modal
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Collection data
-  const [displayedCards, setDisplayedCards] = useState([]);
-  const [collectionIndex, setCollectionIndex] = useState([]); // Lightweight index for search
-  const [loading, setLoading] = useState(false);
-  
-  // Search and filter state
+  // Existing state
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState('grid');
   const [selectedColor, setSelectedColor] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedRarity, setSelectedRarity] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [viewMode, setViewMode] = useState('grid');
-  const [showFilters, setShowFilters] = useState(false);
-  
-  // Debounce timer for search
-  const [searchDebounceTimer, setSearchDebounceTimer] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const cardsPerPage = 20;
 
-  // Load collection index on mount
-  useEffect(() => {
-    if (userId) {
-      loadCollectionIndex();
-    }
-  }, [userId]);
-
-  // Load collection page when filters change
-  useEffect(() => {
-    if (userId) {
-      // Reset to page 1 when filters change
-      setCurrentPage(1);
-      loadCollectionPage(1);
-    }
-  }, [selectedColor, selectedType, selectedRarity, sortBy, sortOrder, userId]);
-
-  // Debounced search
-  useEffect(() => {
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer);
-    }
-    
-    const timer = setTimeout(() => {
-      setCurrentPage(1);
-      loadCollectionPage(1);
-    }, 300); // 300ms debounce
-    
-    setSearchDebounceTimer(timer);
-    
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [searchQuery]);
-
-  const loadCollectionIndex = async () => {
-    try {
-      const data = await api.fetchCollectionIndex(userId);
-      setCollectionIndex(data.index || []);
-    } catch (error) {
-      console.error('Failed to load collection index:', error);
-    }
-  };
-
-  const loadCollectionPage = async (page = currentPage) => {
-    setLoading(true);
-    try {
-      const data = await api.fetchCollectionPage(userId, {
-        page,
-        perPage,
-        search: searchQuery,
-        colors: selectedColor !== 'all' ? [selectedColor] : [],
-        type: selectedType !== 'all' ? selectedType : '',
-        rarity: selectedRarity !== 'all' ? selectedRarity : '',
-        sortBy,
-        sortOrder
-      });
-      
-      setDisplayedCards(data.collection_cards || []);
-      setTotalCards(data.total || 0);
-      setTotalPages(data.pages || 1);
-      setCurrentPage(data.page || 1);
-    } catch (error) {
-      console.error('Failed to load collection:', error);
-      setDisplayedCards([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Wrapper function to handle quantity updates and refresh the page
-  const handleUpdateQuantity = useCallback(async (cardId, newQuantity) => {
-    if (!onUpdateQuantity) return;
-    
-    try {
-      // Call the parent's update function
-      await onUpdateQuantity(cardId, newQuantity);
-      
-      // Refresh the current page to show the updated quantities
-      await loadCollectionPage(currentPage);
-      
-    } catch (error) {
-      console.error('Failed to update quantity:', error);
-      // Still refresh the page to ensure UI consistency
-      await loadCollectionPage(currentPage);
-    }
-  }, [onUpdateQuantity, currentPage, userId, perPage, searchQuery, selectedColor, selectedType, selectedRarity, sortBy, sortOrder]);
-
-  // Derive filter options from collection index
+  // Generate filter options from collection
   const filterOptions = useMemo(() => {
+    if (!collection || collection.length === 0) {
+      return { colors: [], types: [], rarities: [] };
+    }
+
     const colors = new Set();
     const types = new Set();
     const rarities = new Set();
-    
-    collectionIndex.forEach(card => {
-      if (card.colors?.length) {
-        card.colors.forEach(c => colors.add(c));
-      } else {
-        colors.add('Colorless');
+
+    collection.forEach(collectionCard => {
+      const card = collectionCard.card;
+      if (card.colors) {
+        card.colors.forEach(color => colors.add(color));
       }
-      
       if (card.type_line) {
-        const mainType = card.type_line.split(' — ')[0].split(' ')[0];
-        types.add(mainType);
+        card.type_line.split(' ').forEach(type => {
+          if (type && type !== '—') types.add(type);
+        });
       }
-      
       if (card.rarity) {
         rarities.add(card.rarity);
       }
     });
-    
+
     return {
       colors: Array.from(colors).sort(),
       types: Array.from(types).sort(),
       rarities: Array.from(rarities).sort()
     };
-  }, [collectionIndex]);
+  }, [collection]);
 
-  // Search preview - show matching cards from index
-  const searchPreview = useMemo(() => {
-    if (!searchQuery || searchQuery.length < 2) return [];
-    
-    const query = searchQuery.toLowerCase();
-    return collectionIndex
-      .filter(card => 
-        card.name.toLowerCase().includes(query) ||
-        (card.type_line && card.type_line.toLowerCase().includes(query))
-      )
-      .slice(0, 5); // Show top 5 matches
-  }, [searchQuery, collectionIndex]);
+  // Filter and sort collection
+  const filteredCards = useMemo(() => {
+    if (!collection) return [];
 
-  const hasActiveFilters = searchQuery || selectedColor !== 'all' || 
-                          selectedType !== 'all' || selectedRarity !== 'all';
+    let filtered = collection.filter(collectionCard => {
+      const card = collectionCard.card;
+      
+      // Search filter
+      if (searchQuery && !card.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      
+      // Color filter
+      if (selectedColor !== 'all') {
+        if (!card.colors || !card.colors.includes(selectedColor)) {
+          return false;
+        }
+      }
+      
+      // Type filter
+      if (selectedType !== 'all') {
+        if (!card.type_line || !card.type_line.toLowerCase().includes(selectedType.toLowerCase())) {
+          return false;
+        }
+      }
+      
+      // Rarity filter
+      if (selectedRarity !== 'all') {
+        if (card.rarity !== selectedRarity) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+
+    // Sort
+    filtered.sort((a, b) => {
+      const cardA = a.card;
+      const cardB = b.card;
+      let valueA, valueB;
+
+      switch (sortBy) {
+        case 'name':
+          valueA = cardA.name.toLowerCase();
+          valueB = cardB.name.toLowerCase();
+          break;
+        case 'cmc':
+          valueA = cardA.cmc || 0;
+          valueB = cardB.cmc || 0;
+          break;
+        case 'quantity':
+          valueA = a.quantity;
+          valueB = b.quantity;
+          break;
+        default:
+          return 0;
+      }
+
+      if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1;
+      if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [collection, searchQuery, selectedColor, selectedType, selectedRarity, sortBy, sortOrder]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredCards.length / cardsPerPage);
+  const displayedCards = filteredCards.slice(
+    (currentPage - 1) * cardsPerPage,
+    currentPage * cardsPerPage
+  );
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedColor, selectedType, selectedRarity]);
+
+  // Event handlers
+  const handleShowDetails = (card) => {
+    setSelectedCard(card);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCard(null);
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   const clearFilters = () => {
-    setSearchQuery('');
     setSelectedColor('all');
     setSelectedType('all');
     setSelectedRarity('all');
+    setSearchQuery('');
   };
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
-      setCurrentPage(newPage);
-      loadCollectionPage(newPage);
-      // Scroll to top of collection
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
+  const hasActiveFilters = selectedColor !== 'all' || selectedType !== 'all' || 
+                          selectedRarity !== 'all' || searchQuery.trim() !== '';
+
+  const totalCards = collection?.reduce((sum, collectionCard) => sum + collectionCard.quantity, 0) || 0;
+
+  if (!collection || collection.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-lg text-muted-foreground mb-4">Your collection is empty</p>
+        <p className="text-sm text-muted-foreground">
+          Search for cards and add them to your collection to get started!
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Search and Controls */}
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex-1 max-w-md relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -198,22 +200,6 @@ const CollectionTab = ({
             onChange={(e) => setSearchQuery(e.target.value)} 
             className="pl-10" 
           />
-          
-          {/* Search Preview Dropdown */}
-          {searchPreview.length > 0 && (
-            <div className="absolute top-full mt-1 w-full bg-background border rounded-md shadow-lg z-10">
-              {searchPreview.map(card => (
-                <div 
-                  key={card.id} 
-                  className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
-                  onClick={() => setSearchQuery(card.name)}
-                >
-                  <div className="font-medium">{card.name}</div>
-                  <div className="text-xs text-muted-foreground">{card.type_line}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         
         <div className="flex items-center gap-2">
@@ -327,79 +313,93 @@ const CollectionTab = ({
               ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
               : 'grid-cols-1 md:grid-cols-2'
           }`}>
-            {displayedCards.map((collectionCard) => (
-              <CardDisplay
-                key={collectionCard.card.scryfall_id}
-                card={collectionCard.card}
-                collectionCard={collectionCard}
-                onUpdateQuantity={handleUpdateQuantity}
-                onBuildAround={onBuildAroundCard}
-              />
-            ))}
+            {displayedCards.map((collectionCard) => {
+              const card = collectionCard.card;
+              return (
+                <CardDisplay
+                  key={card.scryfall_id}
+                  card={card}
+                  collectionCard={collectionCard}
+                  onUpdateQuantity={onUpdateQuantity}
+                  onBuildAround={onBuildAroundCard}
+                  onShowDetails={handleShowDetails}
+                />
+              );
+            })}
           </div>
 
           {/* Pagination Controls */}
-          <div className="flex justify-center items-center gap-4 mt-8">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            
-            <div className="flex items-center gap-2">
-              {/* Page numbers */}
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-                
-                return (
-                  <Button
-                    key={i}
-                    variant={pageNum === currentPage ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(pageNum)}
-                    className="w-10"
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-4 mt-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              
+              <div className="flex items-center gap-2">
+                {/* Page numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={i}
+                      variant={pageNum === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(pageNum)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          <div className="text-center text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} • Showing {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, totalCards)} of {totalCards} cards
-          </div>
-        </>
-      ) : !loading && (
-        <div className="text-center py-16 text-muted-foreground">
-          <p>{hasActiveFilters ? "No cards match your filters." : "Your collection is empty."}</p>
-          {hasActiveFilters && (
-            <Button variant="link" onClick={clearFilters}>Clear Filters</Button>
           )}
+        </>
+      ) : !loading && filteredCards.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-lg text-muted-foreground mb-2">No cards found</p>
+          <p className="text-sm text-muted-foreground">
+            Try adjusting your search or filters
+          </p>
         </div>
+      ) : null}
+
+      {/* Card Details Modal */}
+      {selectedCard && (
+        <CardDetailsModal
+          card={selectedCard}
+          collectionCard={collection.find(cc => cc.card.scryfall_id === selectedCard.scryfall_id)}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onBuildAround={onBuildAroundCard}
+          onUpdateQuantity={onUpdateQuantity}
+        />
       )}
     </div>
   );

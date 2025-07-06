@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Minus, Hammer } from 'lucide-react';
+import { Plus, Minus, Hammer, Eye } from 'lucide-react';
 import { useState } from 'react';
 import ManaCost from './ManaCost';
 
@@ -14,6 +14,7 @@ const CardDisplay = ({
   onAdd,
   onUpdateQuantity,
   onBuildAround,
+  onShowDetails
 }) => {
   const [imageError, setImageError] = useState(false);
   
@@ -102,6 +103,19 @@ const CardDisplay = ({
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
+          )}
+
+          {/* Details Button - Always visible */}
+          {onShowDetails && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => onShowDetails(card)}
+              className="w-full"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Details
+            </Button>
           )}
           {onBuildAround && (
             <Button variant="outline" onClick={() => onBuildAround(card)} className="w-full">
