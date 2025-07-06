@@ -374,40 +374,388 @@ def remove_from_collection():
 
 @cards_bp.route('/collection/stats', methods=['GET'])
 def collection_stats():
-    """Get collection statistics"""
+    """Get comprehensive collection statistics"""
     user_id = request.args.get('user_id', 1, type=int)
     
     try:
-        # Get basic stats
+        # Basic collection info
         total_cards = db.session.query(db.func.sum(CollectionCard.quantity)).filter(
             CollectionCard.user_id == user_id
         ).scalar() or 0
         
         unique_cards = CollectionCard.query.filter_by(user_id=user_id).count()
         
-        # Get color distribution
-        color_stats = db.session.query(
+        # Average CMC
+        avg_cmc = db.session.query(
+            db.func.avg(Card.cmc)
+        ).join(CollectionCard).filter(
+            CollectionCard.user_id == user_id,
+            Card.cmc.isnot(None)
+        ).scalar() or 0
+        
+        # === COLOR ANALYSIS ===
+        # Enhanced color distribution with multi-color support
+        color_results = db.session.query(
             Card.colors,
             db.func.sum(CollectionCard.quantity).label('count')
         ).join(CollectionCard).filter(
             CollectionCard.user_id == user_id
         ).group_by(Card.colors).all()
         
-        # Get type distribution
-        type_stats = db.session.query(
+        # Process color combinations
+        color_stats = analyze_color_distribution(color_results)
+        
+        # === RARITY ANALYSIS ===
+        rarity_stats = db.session.query(
+            Card.rarity,
+            db.func.sum(CollectionCard.quantity).label('count')
+        ).join(CollectionCard).filter(
+            CollectionCard.user_id == user_id
+        ).group_by(Card.rarity).all()
+        
+        rarity_distribution = [
+            {'rarity': rarity, 'count': count, 'percentage': round((count / total_cards) * 100, 1)}
+            for rarity, count in rarity_stats
+        ]
+        
+        # === CARD TYPE ANALYSIS ===
+        type_results = db.session.query(
             Card.type_line,
             db.func.sum(CollectionCard.quantity).label('count')
         ).join(CollectionCard).filter(
             CollectionCard.user_id == user_id
-        ).group_by(Card.type_line).limit(10).all()
+        ).group_by(Card.type_line).all()
+        
+        type_distribution = analyze_card_types(type_results, total_cards)
+        
+        # === CREATURE ANALYSIS ===
+        creature_stats = analyze_creature_power_toughness(user_id)
+        
+        # === TRIBAL ANALYSIS ===
+        tribal_stats = analyze_tribal_types(user_id)
+        
+        # === SET ANALYSIS ===
+        set_stats = db.session.query(
+            Card.set_name,
+            Card.set_code,
+            db.func.sum(CollectionCard.quantity).label('count'),
+            db.func.count(db.distinct(Card.scryfall_id)).label('unique_count')
+        ).join(CollectionCard).filter(
+            CollectionCard.user_id == user_id
+        ).group_by(Card.set_name, Card.set_code).order_by(
+            db.func.sum(CollectionCard.quantity).desc()
+        ).limit(10).all()
+        
+        set_distribution = [
+            {
+                'set_name': set_name,
+                'set_code': set_code,
+                'total_cards': count,
+                'unique_cards': unique_count
+            }
+            for set_name, set_code, count, unique_count in set_stats
+        ]
+        
+        # === KEYWORDS ANALYSIS ===
+        keyword_stats = analyze_keywords(user_id)
+        
+        # === FORMAT LEGALITY (placeholder for now) ===
+        format_legality = {
+            'standard': 0,
+            'modern': 0,
+            'legacy': 0,
+            'extended': 0,
+            'other_formats': {}
+        }
         
         return jsonify({
+            # Basic overview
             'total_cards': total_cards,
             'unique_cards': unique_cards,
-            'color_distribution': [{'colors': colors, 'count': count} for colors, count in color_stats],
-            'type_distribution': [{'type': type_line, 'count': count} for type_line, count in type_stats]
+            'average_cmc': round(avg_cmc, 2),
+            
+            # Main distributions
+            'color_distribution': color_stats,
+            'rarity_distribution': rarity_distribution,
+            'type_distribution': type_distribution,
+            
+            # Advanced analysis
+            'creature_analysis': creature_stats,
+            'tribal_analysis': tribal_stats,
+            'set_distribution': set_distribution,
+            'keyword_analysis': keyword_stats,
+            'format_legality': format_legality
         })
         
     except Exception as e:
         return jsonify({'error': f'Failed to get stats: {str(e)}'}), 500
 
+
+def analyze_color_distribution(color_results):
+    """Analyze color combinations including guilds, shards, and custom names"""
+    
+    # Guild and shard mappings
+    GUILDS = {
+        ('U', 'W'): 'Azorius',
+        ('B', 'U'): 'Dimir', 
+        ('B', 'R'): 'Rakdos',
+        ('G', 'R'): 'Gruul',
+        ('G', 'W'): 'Selesnya',
+        ('B', 'G'): 'Golgari',
+        ('R', 'U'): 'Izzet',
+        ('R', 'W'): 'Boros',
+        ('G', 'U'): 'Simic',
+        ('B', 'W'): 'Orzhov'
+    }
+    
+    SHARDS = {
+        ('G', 'U', 'W'): 'Bant',
+        ('B', 'R', 'U'): 'Grixis',
+        ('B', 'G', 'R'): 'Jund',
+        ('R', 'U', 'W'): 'Jeskai',
+        ('B', 'G', 'W'): 'Abzan'
+    }
+    
+    WEDGES = {
+        ('B', 'G', 'W'): 'Abzan',
+        ('R', 'U', 'W'): 'Jeskai', 
+        ('B', 'G', 'R'): 'Sultai',
+        ('G', 'R', 'W'): 'Mardu',
+        ('B', 'U', 'R'): 'Temur'
+    }
+    
+    color_breakdown = {
+        'mono_color': {},
+        'guilds': {},
+        'shards_wedges': {},
+        'quads': [],
+        'reapers': [],
+        'colorless': 0,
+        'total_multicolor': 0
+    }
+    
+    total_cards = sum(count for _, count in color_results)
+    
+    for colors, count in color_results:
+        if not colors or len(colors) == 0:
+            color_breakdown['colorless'] = count
+        elif len(colors) == 1:
+            color_breakdown['mono_color'][colors[0]] = count
+        elif len(colors) == 2:
+            sorted_colors = tuple(sorted(colors))
+            guild_name = GUILDS.get(sorted_colors, f"{'-'.join(sorted_colors)}")
+            color_breakdown['guilds'][guild_name] = count
+            color_breakdown['total_multicolor'] += count
+        elif len(colors) == 3:
+            sorted_colors = tuple(sorted(colors))
+            shard_name = SHARDS.get(sorted_colors) or WEDGES.get(sorted_colors) or f"{'-'.join(sorted_colors)}"
+            color_breakdown['shards_wedges'][shard_name] = count
+            color_breakdown['total_multicolor'] += count
+        elif len(colors) == 4:
+            color_breakdown['quads'].append({
+                'colors': sorted(colors),
+                'count': count
+            })
+            color_breakdown['total_multicolor'] += count
+        elif len(colors) == 5:
+            color_breakdown['reapers'].append({
+                'colors': sorted(colors),
+                'count': count
+            })
+            color_breakdown['total_multicolor'] += count
+    
+    # Add percentages
+    for category in ['mono_color', 'guilds', 'shards_wedges']:
+        for key, count in color_breakdown[category].items():
+            color_breakdown[category][key] = {
+                'count': count,
+                'percentage': round((count / total_cards) * 100, 1)
+            }
+    
+    return color_breakdown
+
+
+def analyze_card_types(type_results, total_cards):
+    """Analyze card types with categorization"""
+    
+    type_categories = {
+        'creatures': 0,
+        'instants': 0,
+        'sorceries': 0,
+        'artifacts': 0,
+        'enchantments': 0,
+        'planeswalkers': 0,
+        'lands': 0,
+        'other': 0
+    }
+    
+    detailed_types = []
+    
+    for type_line, count in type_results:
+        type_line_lower = type_line.lower()
+        
+        # Categorize
+        if 'creature' in type_line_lower:
+            type_categories['creatures'] += count
+        elif 'instant' in type_line_lower:
+            type_categories['instants'] += count
+        elif 'sorcery' in type_line_lower:
+            type_categories['sorceries'] += count
+        elif 'artifact' in type_line_lower:
+            type_categories['artifacts'] += count
+        elif 'enchantment' in type_line_lower:
+            type_categories['enchantments'] += count
+        elif 'planeswalker' in type_line_lower:
+            type_categories['planeswalkers'] += count
+        elif 'land' in type_line_lower:
+            type_categories['lands'] += count
+        else:
+            type_categories['other'] += count
+        
+        detailed_types.append({
+            'type': type_line,
+            'count': count,
+            'percentage': round((count / total_cards) * 100, 1)
+        })
+    
+    # Add percentages to categories
+    for category, count in type_categories.items():
+        type_categories[category] = {
+            'count': count,
+            'percentage': round((count / total_cards) * 100, 1)
+        }
+    
+    return {
+        'categories': type_categories,
+        'detailed': sorted(detailed_types, key=lambda x: x['count'], reverse=True)[:15]
+    }
+
+
+def analyze_creature_power_toughness(user_id):
+    """Analyze creature power and toughness ranges"""
+    
+    creatures = db.session.query(
+        Card.power,
+        Card.toughness,
+        db.func.sum(CollectionCard.quantity).label('count')
+    ).join(CollectionCard).filter(
+        CollectionCard.user_id == user_id,
+        Card.type_line.ilike('%creature%'),
+        Card.power.isnot(None),
+        Card.toughness.isnot(None)
+    ).group_by(Card.power, Card.toughness).all()
+    
+    ranges = {
+        'utility': 0,      # 0/1 to 1/1
+        'efficient': 0,    # 2/2 to 3/3
+        'threats': 0,      # 4/4+
+        'high_power': 0,   # 5+ power
+        'high_toughness': 0, # 5+ toughness
+        'variable': 0      # */*, X/X, etc.
+    }
+    
+    for power, toughness, count in creatures:
+        try:
+            if power == '*' or toughness == '*' or 'X' in str(power) or 'X' in str(toughness):
+                ranges['variable'] += count
+                continue
+                
+            p = int(power)
+            t = int(toughness)
+            
+            if p >= 5:
+                ranges['high_power'] += count
+            if t >= 5:
+                ranges['high_toughness'] += count
+                
+            if p <= 1 and t <= 1:
+                ranges['utility'] += count
+            elif 2 <= p <= 3 and 2 <= t <= 3:
+                ranges['efficient'] += count
+            elif p >= 4 or t >= 4:
+                ranges['threats'] += count
+                
+        except (ValueError, TypeError):
+            ranges['variable'] += count
+    
+    total_creatures = sum(ranges.values())
+    
+    # Add percentages
+    for category, count in ranges.items():
+        ranges[category] = {
+            'count': count,
+            'percentage': round((count / total_creatures) * 100, 1) if total_creatures > 0 else 0
+        }
+    
+    return ranges
+
+
+def analyze_tribal_types(user_id):
+    """Analyze creature types for tribal analysis"""
+    
+    # Get all creatures with their type lines
+    creatures = db.session.query(
+        Card.type_line,
+        db.func.sum(CollectionCard.quantity).label('count')
+    ).join(CollectionCard).filter(
+        CollectionCard.user_id == user_id,
+        Card.type_line.ilike('%creature%')
+    ).group_by(Card.type_line).all()
+    
+    tribal_counts = {}
+    
+    for type_line, count in creatures:
+        # Extract creature types (after "—" if present)
+        if '—' in type_line:
+            creature_types = type_line.split('—')[1].strip()
+        else:
+            # Handle cases without — (shouldn't happen in modern cards)
+            continue
+            
+        # Split multiple creature types
+        types = [t.strip() for t in creature_types.split()]
+        
+        for creature_type in types:
+            if creature_type.lower() not in ['creature']:  # Skip the word "creature" itself
+                tribal_counts[creature_type] = tribal_counts.get(creature_type, 0) + count
+    
+    # Sort by count and take top 20
+    top_tribes = sorted(tribal_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+    
+    return [
+        {
+            'tribe': tribe,
+            'count': count
+        }
+        for tribe, count in top_tribes
+    ]
+
+
+def analyze_keywords(user_id):
+    """Analyze keywords and abilities"""
+    
+    keywords_data = db.session.query(
+        Card.keywords,
+        db.func.sum(CollectionCard.quantity).label('count')
+    ).join(CollectionCard).filter(
+        CollectionCard.user_id == user_id,
+        Card.keywords.isnot(None)
+    ).group_by(Card.keywords).all()
+    
+    keyword_counts = {}
+    
+    for keywords_list, count in keywords_data:
+        if keywords_list:
+            for keyword in keywords_list:
+                keyword_counts[keyword] = keyword_counts.get(keyword, 0) + count
+    
+    # Sort by count and take top 20
+    top_keywords = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+    
+    return [
+        {
+            'keyword': keyword,
+            'count': count
+        }
+        for keyword, count in top_keywords
+    ]
