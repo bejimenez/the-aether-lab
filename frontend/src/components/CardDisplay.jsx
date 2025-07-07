@@ -2,8 +2,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Minus, Hammer, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import ManaCost from './ManaCost';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 // Generic Magic card back image URL - you can host this locally or use a CDN
 const MAGIC_CARD_BACK_URL = 'https://cards.scryfall.io/large/back/0/0/0000000-0000-0000-0000-000000000000.jpg';
@@ -18,6 +19,57 @@ const CardDisplay = ({
   showCollectionBadge = false
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const cardRef = useRef(null);
+
+  // Get quantity - either from collectionCard or default to 0
+  const quantity = collectionCard?.quantity || 0;
+
+  // Card-specific shortcuts that only work when this card is focused/hovered
+  const cardShortcuts = {
+    'a': () => {
+      if (isFocused || isHovered) {
+        if (onAdd) {
+          onAdd(card);
+        } else if (onUpdateQuantity && quantity >= 0) {
+          onUpdateQuantity(card.scryfall_id, quantity + 1);
+        }
+      }
+    },
+    'd': () => {
+      if ((isFocused || isHovered) && quantity > 0 && onUpdateQuantity) {
+        onUpdateQuantity(card.scryfall_id, quantity - 1);
+      }
+    },
+    '+': () => {
+      if ((isFocused || isHovered) && quantity > 0 && onUpdateQuantity) {
+        onUpdateQuantity(card.scryfall_id, quantity + 1);
+      }
+    },
+    '-': () => {
+      if ((isFocused || isHovered) && quantity > 1 && onUpdateQuantity) {
+        onUpdateQuantity(card.scryfall_id, quantity - 1);
+      }
+    },
+    'b': () => {
+      if ((isFocused || isHovered) && onBuildAround) {
+        onBuildAround(card);
+      }
+    },
+    'enter': () => {
+      if (isFocused) {
+        // Quick add/increment
+        if (quantity === 0 && onAdd) {
+          onAdd(card);
+        } else if (onUpdateQuantity) {
+          onUpdateQuantity(card.scryfall_id, quantity + 1);
+        }
+      }
+    }
+  };
+
+  useKeyboardShortcuts(cardShortcuts);
   
   // Determine which image to show
   const getImageUrl = () => {
@@ -32,7 +84,17 @@ const CardDisplay = ({
   };
 
   return (
-    <Card className="w-full max-w-sm flex flex-col">
+    <Card 
+      ref={cardRef}
+      className={`w-full max-w-sm flex flex-col cursor-pointer transition-all duration-200 ${
+        isFocused ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+      } ${isHovered ? 'shadow-lg transform scale-105' : ''}`}
+      tabIndex={0}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+    >
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">{card.name}</CardTitle>
@@ -86,6 +148,20 @@ const CardDisplay = ({
           )}
         </div>
         <div className="flex flex-col gap-2 mt-auto">
+          {/* Keyboard shortcuts hint - shown when focused */}
+          {isFocused && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 text-xs">
+              <div className="text-blue-800 dark:text-blue-200 font-medium mb-1">Keyboard Shortcuts:</div>
+              <div className="text-blue-700 dark:text-blue-300 space-y-0.5">
+                <div>A: Add to collection</div>
+                {quantity > 0 && <div>D: Remove from collection</div>}
+                {quantity > 0 && <div>+/-: Adjust quantity</div>}
+                <div>B: Build deck around</div>
+                <div>Enter: Quick add/increment</div>
+              </div>
+            </div>
+          )}
+          
           {onAdd && (
             <Button onClick={() => onAdd(card)} className="w-full">
               Add to Collection
