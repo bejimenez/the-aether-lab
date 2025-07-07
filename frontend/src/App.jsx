@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Library, Layers, TrendingUp, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from './components/ThemeSwitcher';
+import MobileMenu from './components/MobileMenu';
 import SearchTab from './components/SearchTab';
 import CollectionTab from './components/CollectionTab';
 import CardDetailsModal from './components/CardDetailsModal';
@@ -190,7 +191,11 @@ const handleCloseCardDetails = () => {
   }
 
   // If user is not logged in, show login component
-  if (!user) {
+  // TEMPORARY: Demo mode for testing layout (add ?demo=true to URL)
+  const urlParams = new URLSearchParams(window.location.search);
+  const demoMode = urlParams.get('demo') === 'true';
+  
+  if (!user && !demoMode) {
     return <Login />;
   }
 
@@ -201,9 +206,11 @@ const handleCloseCardDetails = () => {
         {/* Header with user info and sign out */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">The Aether Lab</h1>
-          <div className="flex items-center gap-4">
+          
+          {/* Desktop Header Controls - hidden on mobile */}
+          <div className="hidden md:flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              Welcome, {userProfile?.username || user.email}
+              Welcome, {userProfile?.username || user?.email || 'Demo User'}
             </span>
             <Button
               variant="outline"
@@ -214,6 +221,15 @@ const handleCloseCardDetails = () => {
               Sign Out
             </Button>
             <ThemeSwitcher />
+          </div>
+
+          {/* Mobile Menu - shown only on mobile */}
+          <div className="md:hidden">
+            <MobileMenu 
+              userProfile={userProfile}
+              user={user}
+              onSignOut={handleSignOut}
+            />
           </div>
         </div>
 
