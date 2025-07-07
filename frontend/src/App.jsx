@@ -111,6 +111,7 @@ function AppContent() {
   const [isDeckBuilderOpen, setDeckBuilderOpen] = useState(false);
   const [selectedCardForDetails, setSelectedCardForDetails] = useState(null);
   const [isCardDetailsOpen, setCardDetailsOpen] = useState(false);
+  const [collectionUpdateTrigger, setCollectionUpdateTrigger] = useState(0);
   
   // Ref for search input to enable focus via keyboard shortcut
   const searchInputRef = useRef(null);
@@ -217,38 +218,51 @@ const handleCloseCardDetails = () => {
     // FIX: Use card.scryfall_id instead of card.id
     await api.addToCollection(userProfile.id, card.scryfall_id, quantity);
     await loadUserData();
+    
+    // Force SearchTab to update by incrementing trigger
+    setCollectionUpdateTrigger(prev => prev + 1);
+    
     // Show success toast
-    addToast('Card Added!');
+    addToast('Card Added!', 'Your card has been added to your collection.', 'success');
   } catch (error) {
     console.error("Failed to add to collection:", error);
+    addToast('Error', 'Failed to add card to collection.', 'error');
   }
 }, [userProfile?.id, loadUserData, addToast]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
-    if (!userProfile?.id) return;
+  if (!userProfile?.id) return;
+  
+  try {
+    await api.removeFromCollection(userProfile.id, cardId);
+    await loadUserData();
     
-    try {
-      await api.removeFromCollection(userProfile.id, cardId);
-      await loadUserData();
-    } catch (error) {
-      console.error("Failed to remove from collection:", error);
-    }
-  }, [userProfile?.id, loadUserData]);
+    // Force SearchTab to update by incrementing trigger
+    setCollectionUpdateTrigger(prev => prev + 1);
+    
+  } catch (error) {
+    console.error("Failed to remove from collection:", error);
+  }
+}, [userProfile?.id, loadUserData]);
 
   const handleUpdateQuantity = useCallback(async (cardId, newQuantity) => {
-    if (!userProfile?.id) return;
-    
-    try {
-      if (newQuantity <= 0) {
-        await api.removeFromCollection(userProfile.id, cardId);
-      } else {
-        await api.updateCardQuantity(userProfile.id, cardId, newQuantity);
-      }
-      await loadUserData();
-    } catch (error) {
-      console.error("Failed to update quantity:", error);
+  if (!userProfile?.id) return;
+  
+  try {
+    if (newQuantity <= 0) {
+      await api.removeFromCollection(userProfile.id, cardId);
+    } else {
+      await api.updateCardQuantity(userProfile.id, cardId, newQuantity);
     }
-  }, [userProfile?.id, loadUserData]);
+    await loadUserData();
+    
+    // Force SearchTab to update by incrementing trigger
+    setCollectionUpdateTrigger(prev => prev + 1);
+    
+  } catch (error) {
+    console.error("Failed to update quantity:", error);
+  }
+}, [userProfile?.id, loadUserData]);
 
   const handleCreateDeck = useCallback(async (deckData) => {
     if (!userProfile?.id) return;
@@ -380,6 +394,7 @@ const handleCloseCardDetails = () => {
               loading={loading}
               collection={collection}
               searchInputRef={searchInputRef}
+              collectionUpdateTrigger={collectionUpdateTrigger} // Pass trigger to force update
             />
           </TabsContent>
 

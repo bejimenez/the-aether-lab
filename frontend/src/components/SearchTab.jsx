@@ -4,9 +4,25 @@ import { Button } from '@/components/ui/button';
 import CardDisplay from './CardDisplay';
 import { Search, X } from 'lucide-react';
 
-const SearchTab = ({ onSearch, searchResults, loading, onAddCard, onShowDetails, collection = [], searchInputRef }) => {
+const SearchTab = ({ 
+  onSearch, 
+  searchResults, 
+  loading, 
+  onAddCard, 
+  onShowDetails, 
+  collection = [], 
+  searchInputRef,
+  // Add a refresh trigger to force updates
+  collectionUpdateTrigger 
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [localCollection, setLocalCollection] = useState(collection);
   const debounceTimerRef = useRef(null);
+
+  // Update local collection when props change or when update trigger changes
+  useEffect(() => {
+    setLocalCollection(collection);
+  }, [collection, collectionUpdateTrigger]);
 
   // Expose clear function via ref for parent component
   useEffect(() => {
@@ -72,67 +88,72 @@ const SearchTab = ({ onSearch, searchResults, loading, onAddCard, onShowDetails,
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
-      onSearch(searchQuery);
+      handleManualSearch();
     }
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <div className="flex-1 relative">
+      {/* Search Input */}
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             ref={searchInputRef}
-            placeholder="Search for Magic cards... (type to search automatically)"
+            type="text"
+            placeholder="Search for Magic cards..."
             value={searchQuery}
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}
-            className="pr-8"
+            className="pl-10 pr-10"
           />
           {searchQuery && (
             <Button
               variant="ghost"
               size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
               onClick={handleClearSearch}
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 hover:bg-muted"
             >
-              <X className="h-3 w-3" />
+              <X className="h-4 w-4" />
             </Button>
           )}
         </div>
-        <Button onClick={handleManualSearch} disabled={loading}>
-          <Search className="w-4 h-4 mr-2" />
-          {loading ? 'Searching...' : 'Search'}
+        <Button onClick={handleManualSearch} disabled={loading || searchQuery.length < 2}>
+          Search
         </Button>
       </div>
 
-      {/* Loading indicator for debounced searches */}
+      {/* Loading state */}
       {loading && (
-        <div className="text-center py-4 text-muted-foreground">
-          <div className="flex items-center justify-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-            Searching for "{searchQuery}"...
-          </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-muted-foreground">Searching cards...</p>
         </div>
       )}
 
-      {/* Search results */}
-      {searchResults.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            Found {searchResults.length} card{searchResults.length !== 1 ? 's' : ''}
+      {/* Search Results */}
+      {!loading && searchResults.length > 0 && (
+        <div>
+          <p className="text-muted-foreground mb-4">
+            Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
             {searchQuery && ` for "${searchQuery}"`}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {searchResults.map(card => (
-              <CardDisplay
-                key={card.scryfall_id || card.id}
-                card={card}
-                collectionCard={collection.find(cc => cc.scryfall_id === card.scryfall_id)}
-                onAdd={onAddCard}
-                onShowDetails={onShowDetails}
-                showCollectionBadge={true}
-              />
-            ))}
+            {searchResults.map(card => {
+              // Find collection card data for this search result
+              const collectionCard = localCollection.find(cc => cc.scryfall_id === card.scryfall_id);
+              
+              return (
+                <CardDisplay
+                  key={card.scryfall_id || card.id}
+                  card={card}
+                  collectionCard={collectionCard}
+                  onAdd={onAddCard}
+                  onShowDetails={onShowDetails}
+                  showCollectionBadge={true}
+                />
+              );
+            })}
           </div>
         </div>
       )}
