@@ -106,6 +106,7 @@ export const fetchCollectionPage = (userId, options = {}) => {
     colors = [],
     type = '',
     rarity = '',
+    cmcRange = [0, 15],
     sortBy = 'name',
     sortOrder = 'asc'
   } = options;
@@ -127,6 +128,12 @@ export const fetchCollectionPage = (userId, options = {}) => {
 
   if (rarity) {
     params.append('rarity', rarity);
+  }
+
+  // Add CMC range parameters
+  if (cmcRange && (cmcRange[0] !== 0 || cmcRange[1] !== 15)) {
+    params.append('cmc_min', cmcRange[0].toString());
+    params.append('cmc_max', cmcRange[1].toString());
   }
 
   return makeAuthenticatedRequest(`${API_BASE_URL}/collection/search?${params.toString()}`);

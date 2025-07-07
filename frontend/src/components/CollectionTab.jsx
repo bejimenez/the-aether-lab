@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Filter, X, SortAsc, SortDesc, Grid, List, ChevronLeft, ChevronRight } from 'lucide-react';
 import CardDisplay from './CardDisplay';
 import CardDetailsModal from './CardDetailsModal';
+import CMCRangeSlider from './CMCRangeSlider';
 import * as api from '../api/mtgApi';
 
 const CollectionTab = ({
@@ -34,6 +35,7 @@ const CollectionTab = ({
   const [selectedColor, setSelectedColor] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedRarity, setSelectedRarity] = useState('all');
+  const [cmcRange, setCmcRange] = useState([0, 15]);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState('grid');
@@ -67,7 +69,7 @@ const CollectionTab = ({
       setCurrentPage(1);
       loadCollectionPage(1);
     }
-  }, [selectedColor, selectedType, selectedRarity, sortBy, sortOrder, userId]);
+  }, [selectedColor, selectedType, selectedRarity, cmcRange, sortBy, sortOrder, userId]);
 
   // Debounced search
   useEffect(() => {
@@ -106,6 +108,7 @@ const CollectionTab = ({
         colors: selectedColor !== 'all' ? [selectedColor] : [],
         type: selectedType !== 'all' ? selectedType : '',
         rarity: selectedRarity !== 'all' ? selectedRarity : '',
+        cmcRange,
         sortBy,
         sortOrder
       });
@@ -138,7 +141,7 @@ const CollectionTab = ({
       // Still refresh the page to ensure UI consistency
       await loadCollectionPage(currentPage);
     }
-  }, [onUpdateQuantity, currentPage, userId, perPage, searchQuery, selectedColor, selectedType, selectedRarity, sortBy, sortOrder]);
+  }, [onUpdateQuantity, currentPage, userId, perPage, searchQuery, selectedColor, selectedType, selectedRarity, cmcRange, sortBy, sortOrder]);
 
   // Derive filter options from collection index
   const filterOptions = useMemo(() => {
@@ -184,13 +187,15 @@ const CollectionTab = ({
   }, [searchQuery, collectionIndex]);
 
   const hasActiveFilters = searchQuery || selectedColor !== 'all' || 
-                          selectedType !== 'all' || selectedRarity !== 'all';
+                          selectedType !== 'all' || selectedRarity !== 'all' ||
+                          cmcRange[0] !== 0 || cmcRange[1] !== 15;
 
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedColor('all');
     setSelectedType('all');
     setSelectedRarity('all');
+    setCmcRange([0, 15]);
   };
 
   const handlePageChange = (newPage) => {
@@ -258,71 +263,85 @@ const CollectionTab = ({
               )}
             </div>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Color</label>
-              <select 
-                value={selectedColor} 
-                onChange={e => setSelectedColor(e.target.value)} 
-                className="w-full p-2 border rounded bg-background"
-              >
-                <option value="all">All Colors</option>
-                {filterOptions.colors.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-2 block">Type</label>
-              <select 
-                value={selectedType} 
-                onChange={e => setSelectedType(e.target.value)} 
-                className="w-full p-2 border rounded bg-background"
-              >
-                <option value="all">All Types</option>
-                {filterOptions.types.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-2 block">Rarity</label>
-              <select 
-                value={selectedRarity} 
-                onChange={e => setSelectedRarity(e.target.value)} 
-                className="w-full p-2 border rounded bg-background"
-              >
-                <option value="all">All Rarities</option>
-                {filterOptions.rarities.map(r => (
-                  <option key={r} value={r}>
-                    {r.charAt(0).toUpperCase() + r.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-2 block">Sort By</label>
-              <div className="flex gap-2">
+          <CardContent className="space-y-4">
+            {/* First row of filters */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Color</label>
                 <select 
-                  value={sortBy} 
-                  onChange={e => setSortBy(e.target.value)} 
+                  value={selectedColor} 
+                  onChange={e => setSelectedColor(e.target.value)} 
                   className="w-full p-2 border rounded bg-background"
                 >
-                  <option value="name">Name</option>
-                  <option value="cmc">Mana Cost</option>
-                  <option value="quantity">Quantity</option>
+                  <option value="all">All Colors</option>
+                  {filterOptions.colors.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
-                >
-                  {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-                </Button>
               </div>
+              
+              <div>
+                <label className="text-sm font-medium mb-2 block">Type</label>
+                <select 
+                  value={selectedType} 
+                  onChange={e => setSelectedType(e.target.value)} 
+                  className="w-full p-2 border rounded bg-background"
+                >
+                  <option value="all">All Types</option>
+                  {filterOptions.types.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium mb-2 block">Rarity</label>
+                <select 
+                  value={selectedRarity} 
+                  onChange={e => setSelectedRarity(e.target.value)} 
+                  className="w-full p-2 border rounded bg-background"
+                >
+                  <option value="all">All Rarities</option>
+                  {filterOptions.rarities.map(r => (
+                    <option key={r} value={r}>
+                      {r.charAt(0).toUpperCase() + r.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium mb-2 block">Sort By</label>
+                <div className="flex gap-2">
+                  <select 
+                    value={sortBy} 
+                    onChange={e => setSortBy(e.target.value)} 
+                    className="w-full p-2 border rounded bg-background"
+                  >
+                    <option value="name">Name</option>
+                    <option value="cmc">Mana Cost</option>
+                    <option value="quantity">Quantity</option>
+                  </select>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
+                  >
+                    {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Second row for CMC Range Slider */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CMCRangeSlider
+                value={cmcRange}
+                onChange={setCmcRange}
+                min={0}
+                max={15}
+                className="col-span-1 md:col-span-2"
+              />
             </div>
           </CardContent>
         </Card>
