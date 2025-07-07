@@ -212,12 +212,9 @@ def search_collection():
         # Apply CMC range filter
         if cmc_min is not None:
             collection_query = collection_query.filter(Card.cmc >= cmc_min)
-        if cmc_max is not None:
+        if cmc_max is not None and cmc_max < 15:
             # For cmc_max of 15, treat it as 15+ (no upper limit)
-            if cmc_max < 15:
-                collection_query = collection_query.filter(Card.cmc <= cmc_max)
-            else:
-                collection_query = collection_query.filter(Card.cmc >= cmc_min if cmc_min is not None else 0)
+            collection_query = collection_query.filter(Card.cmc <= cmc_max)
         
         # Apply sorting
         if sort_by == 'name':
