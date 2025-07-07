@@ -82,8 +82,8 @@ function AppContent() {
   }
 }, []);
 
-  const handleShowCardDetails = (card, fromContext = 'unknown') => {
-  setSelectedCardForDetails({...card, _modalContext: fromContext});
+  const handleShowCardDetails = (card) => {
+  setSelectedCardForDetails(card);
   setCardDetailsOpen(true);
 };
 
@@ -243,8 +243,9 @@ const handleCloseCardDetails = () => {
               onSearch={handleSearch}
               searchResults={searchResults}
               onAddCard={handleAddToCollection}
-              onShowDetails={(card) => handleShowCardDetails(card, 'search')}
+              onShowDetails={handleShowCardDetails}
               loading={loading}
+              collection={collection}
             />
           </TabsContent>
 

@@ -237,12 +237,6 @@ const CardDetailsModal = ({
                         {card.set_name} ({card.set_code.toUpperCase()})
                       </Badge>
                     )}
-                    {/* Collection quantity badge - only show when opened from search */}
-                    {card._modalContext === 'search' && (
-                      <Badge variant="destructive" className="text-sm px-3 py-1 bg-green-600 hover:bg-green-700">
-                        {collectionCard ? `${collectionCard.quantity} in Collection` : '0 in Collection'}
-                      </Badge>
-                    )}
                   </div>
                 </CardContent>
               </Card>
