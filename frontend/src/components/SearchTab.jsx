@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import CardDisplay from './CardDisplay';
 import { Search, X } from 'lucide-react';
 
-const SearchTab = ({ onSearch, searchResults, loading, onAddCard }) => {
+const SearchTab = ({ onSearch, searchResults, loading, onAddCard, onShowDetails }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const debounceTimerRef = useRef(null);
 
@@ -118,6 +118,7 @@ const SearchTab = ({ onSearch, searchResults, loading, onAddCard }) => {
                 key={card.scryfall_id || card.id}
                 card={card}
                 onAdd={onAddCard}
+                onShowDetails={onShowDetails}
               />
             ))}
           </div>
