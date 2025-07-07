@@ -243,7 +243,9 @@ const handleCloseCardDetails = () => {
               onSearch={handleSearch}
               searchResults={searchResults}
               onAddCard={handleAddToCollection}
+              onShowDetails={handleShowCardDetails}
               loading={loading}
+              collection={collection}
             />
           </TabsContent>
 

@@ -14,7 +14,8 @@ const CardDisplay = ({
   onAdd,
   onUpdateQuantity,
   onBuildAround,
-  onShowDetails
+  onShowDetails,
+  showCollectionBadge = false
 }) => {
   const [imageError, setImageError] = useState(false);
   
@@ -35,7 +36,15 @@ const CardDisplay = ({
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">{card.name}</CardTitle>
-          <Badge variant="secondary">{card.rarity}</Badge>
+          <div className="flex gap-2">
+            <Badge variant="secondary">{card.rarity}</Badge>
+            {/* Collection quantity badge - only show in search context */}
+            {showCollectionBadge && (
+              <Badge variant="destructive" className="bg-green-600 hover:bg-green-700 text-white">
+                {collectionCard ? `${collectionCard.quantity} in Collection` : '0 in Collection'}
+              </Badge>
+            )}
+          </div>
         </div>
         <CardDescription className="text-sm">
           {/* Replace text mana cost with visual symbols */}
