@@ -4,9 +4,18 @@ import { Button } from '@/components/ui/button';
 import CardDisplay from './CardDisplay';
 import { Search, X } from 'lucide-react';
 
-const SearchTab = ({ onSearch, searchResults, loading, onAddCard, onShowDetails, collection = [] }) => {
+const SearchTab = ({ onSearch, searchResults, loading, onAddCard, onShowDetails, collection = [], searchInputRef }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const debounceTimerRef = useRef(null);
+
+  // Expose clear function via ref for parent component
+  useEffect(() => {
+    if (searchInputRef && searchInputRef.current) {
+      searchInputRef.current.clearSearch = () => {
+        setSearchQuery('');
+      };
+    }
+  }, [searchInputRef]);
 
   // Debounced search effect
   useEffect(() => {
@@ -72,6 +81,7 @@ const SearchTab = ({ onSearch, searchResults, loading, onAddCard, onShowDetails,
       <div className="flex gap-2">
         <div className="flex-1 relative">
           <Input
+            ref={searchInputRef}
             placeholder="Search for Magic cards... (type to search automatically)"
             value={searchQuery}
             onChange={handleInputChange}

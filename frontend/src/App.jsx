@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from './api/mtgApi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Library, Layers, TrendingUp, LogOut } from 'lucide-react';
@@ -15,7 +15,81 @@ import DeckBuilder from './components/DeckBuilder';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider, useToast } from './components/ui/toast';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import './App.css';
+
+// Optional: Help overlay component
+const KeyboardShortcutsHelp = () => {
+  const [showHelp, setShowHelp] = useState(false);
+
+  // Show help with ? key
+  useKeyboardShortcuts({
+    '?': () => setShowHelp(true),
+    'escape': () => setShowHelp(false),
+  });
+
+  if (!showHelp) {
+    return (
+      <div className="fixed bottom-4 right-4 z-40">
+        <div className="text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded border">
+          Press ? for keyboard shortcuts
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md">
+        <h3 className="font-bold mb-4">Keyboard Shortcuts</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">/</kbd></span>
+            <span>Focus search</span>
+          </div>
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">Esc</kbd></span>
+            <span>Clear search / Unfocus</span>
+          </div>
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">1-4</kbd></span>
+            <span>Switch tabs</span>
+          </div>
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">a</kbd></span>
+            <span>Add to collection</span>
+          </div>
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">d</kbd></span>
+            <span>Remove from collection</span>
+          </div>
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">+/-</kbd></span>
+            <span>Adjust quantity</span>
+          </div>
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">b</kbd></span>
+            <span>Build deck around card</span>
+          </div>
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">Ctrl+K</kbd></span>
+            <span>Clear search</span>
+          </div>
+          <div className="flex justify-between">
+            <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">?</kbd></span>
+            <span>Show this help</span>
+          </div>
+        </div>
+        <button 
+          onClick={() => setShowHelp(false)}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // Main App Content Component (this is what gets rendered when user is logged in)
 function AppContent() {
@@ -37,6 +111,49 @@ function AppContent() {
   const [isDeckBuilderOpen, setDeckBuilderOpen] = useState(false);
   const [selectedCardForDetails, setSelectedCardForDetails] = useState(null);
   const [isCardDetailsOpen, setCardDetailsOpen] = useState(false);
+  
+  // Ref for search input to enable focus via keyboard shortcut
+  const searchInputRef = useRef(null);
+  
+  // Function to clear search - needed for keyboard shortcuts
+  const clearSearch = useCallback(() => {
+    setSearchResults([]);
+    // Clear search query in SearchTab
+    if (searchInputRef.current && searchInputRef.current.clearSearch) {
+      searchInputRef.current.clearSearch();
+    }
+  }, []);
+
+  // Global keyboard shortcuts
+  useKeyboardShortcuts({
+    '/': () => {
+      // Focus search input
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+        setActiveTab('search');
+      }
+    },
+    'escape': () => {
+      // Clear search and unfocus
+      if (searchInputRef.current) {
+        searchInputRef.current.blur();
+      }
+      // Clear search if we're on search tab
+      if (activeTab === 'search') {
+        clearSearch();
+      }
+    },
+    '1': () => setActiveTab('search'),
+    '2': () => setActiveTab('collection'),
+    '3': () => setActiveTab('decks'),
+    '4': () => setActiveTab('stats'),
+    'ctrl+k': () => {
+      // Clear search
+      if (activeTab === 'search') {
+        clearSearch();
+      }
+    },
+  });
 
   // Updated loadUserData to use userProfile.id instead of currentUser
   const loadUserData = useCallback(async () => {
@@ -262,6 +379,7 @@ const handleCloseCardDetails = () => {
               onShowDetails={handleShowCardDetails}
               loading={loading}
               collection={collection}
+              searchInputRef={searchInputRef}
             />
           </TabsContent>
 
@@ -331,6 +449,9 @@ const handleCloseCardDetails = () => {
           onUpdateQuantity={handleUpdateQuantity}
         />
       )}
+      
+      {/* Keyboard Shortcuts Help */}
+      <KeyboardShortcutsHelp />
     </div>
   );
 }
