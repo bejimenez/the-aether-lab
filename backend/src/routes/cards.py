@@ -169,6 +169,8 @@ def search_collection():
     colors = request.args.get('colors', '').split(',') if request.args.get('colors') else []
     card_type = request.args.get('type', '').strip()
     rarity = request.args.get('rarity', '').strip()
+    cmc_min = request.args.get('cmc_min', type=int)
+    cmc_max = request.args.get('cmc_max', type=int)
     sort_by = request.args.get('sort_by', 'name')
     sort_order = request.args.get('sort_order', 'asc')
     page = request.args.get('page', 1, type=int)
@@ -206,6 +208,13 @@ def search_collection():
         
         if rarity:
             collection_query = collection_query.filter(Card.rarity == rarity)
+        
+        # Apply CMC range filter
+        if cmc_min is not None:
+            collection_query = collection_query.filter(Card.cmc >= cmc_min)
+        if cmc_max is not None and cmc_max < 15:
+            # For cmc_max of 15, treat it as 15+ (no upper limit)
+            collection_query = collection_query.filter(Card.cmc <= cmc_max)
         
         # Apply sorting
         if sort_by == 'name':
