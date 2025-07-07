@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,10 @@ const CollectionTab = ({
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState('grid');
   const [showFilters, setShowFilters] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  
+  // Ref for search container to detect clicks outside
+  const searchContainerRef = useRef(null);
   
   // Debounce timer for search
   const [searchDebounceTimer, setSearchDebounceTimer] = useState(null);
@@ -88,6 +92,31 @@ const CollectionTab = ({
       if (timer) clearTimeout(timer);
     };
   }, [searchQuery]);
+
+  // Handle click outside search dropdown and escape key
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
+        setShowSearchDropdown(false);
+      }
+    };
+
+    if (showSearchDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [showSearchDropdown]);
 
   const loadCollectionIndex = async () => {
     try {
@@ -207,27 +236,53 @@ const CollectionTab = ({
     }
   };
 
+  // Handle search input focus to show dropdown
+  const handleSearchFocus = () => {
+    if (searchPreview.length > 0) {
+      setShowSearchDropdown(true);
+    }
+  };
+
+  // Handle search input change 
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    // Show dropdown if there are results and value is not empty
+    if (value.length >= 2) {
+      setShowSearchDropdown(true);
+    } else {
+      setShowSearchDropdown(false);
+    }
+  };
+
+  // Handle suggestion click
+  const handleSuggestionClick = (cardName) => {
+    setSearchQuery(cardName);
+    setShowSearchDropdown(false);
+  };
+
   return (
     <div className="space-y-4">
       {/* Search and Controls */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex-1 max-w-md relative">
+        <div className="flex-1 max-w-md relative" ref={searchContainerRef}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input 
             placeholder="Search your collection..." 
             value={searchQuery} 
-            onChange={(e) => setSearchQuery(e.target.value)} 
+            onChange={handleSearchChange}
+            onFocus={handleSearchFocus}
             className="pl-10" 
           />
           
           {/* Search Preview Dropdown */}
-          {searchPreview.length > 0 && (
+          {showSearchDropdown && searchPreview.length > 0 && (
             <div className="absolute top-full mt-1 w-full bg-background border rounded-md shadow-lg z-10">
               {searchPreview.map(card => (
                 <div 
                   key={card.id} 
                   className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
-                  onClick={() => setSearchQuery(card.name)}
+                  onClick={() => handleSuggestionClick(card.name)}
                 >
                   <div className="font-medium">{card.name}</div>
                   <div className="text-xs text-muted-foreground">{card.type_line}</div>
