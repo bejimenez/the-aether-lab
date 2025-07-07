@@ -24,7 +24,7 @@ const KeyboardShortcutsHelp = () => {
 
   // Show help with ? key
   useKeyboardShortcuts({
-    '?': () => setShowHelp(true),
+    'h': () => setShowHelp(true),
     'escape': () => setShowHelp(false),
   });
 
@@ -32,7 +32,7 @@ const KeyboardShortcutsHelp = () => {
     return (
       <div className="fixed bottom-4 right-4 z-40">
         <div className="text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded border">
-          Press ? for keyboard shortcuts
+          Press h for keyboard shortcuts
         </div>
       </div>
     );
