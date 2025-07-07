@@ -149,7 +149,7 @@ const CardDisplay = ({
         </div>
         <div className="flex flex-col gap-2 mt-auto">
           {/* Keyboard shortcuts hint - shown when focused */}
-          {isFocused && (
+          {/* {isFocused && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 text-xs">
               <div className="text-blue-800 dark:text-blue-200 font-medium mb-1">Keyboard Shortcuts:</div>
               <div className="text-blue-700 dark:text-blue-300 space-y-0.5">
@@ -160,7 +160,7 @@ const CardDisplay = ({
                 <div>Enter: Quick add/increment</div>
               </div>
             </div>
-          )}
+          )} */}
           
           {onAdd && (
             <Button onClick={() => onAdd(card)} className="w-full">
