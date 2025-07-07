@@ -442,7 +442,7 @@ const handleCloseCardDetails = () => {
       {selectedCardForDetails && (
         <CardDetailsModal
           card={selectedCardForDetails}
-          collectionCard={collection.find(cc => cc.card.scryfall_id === selectedCardForDetails.scryfall_id)}
+          collectionCard={collection.find(cc => cc.scryfall_id === selectedCardForDetails.scryfall_id)}
           isOpen={isCardDetailsOpen}
           onClose={handleCloseCardDetails}
           onBuildAround={handleBuildAroundCard}

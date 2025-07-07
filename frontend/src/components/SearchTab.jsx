@@ -127,7 +127,7 @@ const SearchTab = ({ onSearch, searchResults, loading, onAddCard, onShowDetails,
               <CardDisplay
                 key={card.scryfall_id || card.id}
                 card={card}
-                collectionCard={collection.find(cc => cc.card.scryfall_id === card.scryfall_id)}
+                collectionCard={collection.find(cc => cc.scryfall_id === card.scryfall_id)}
                 onAdd={onAddCard}
                 onShowDetails={onShowDetails}
                 showCollectionBadge={true}
