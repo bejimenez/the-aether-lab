@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 import requests
 import time
+from sqlalchemy import text
 from src.models.user import db
 from src.models.card import Card, CollectionCard
 from src.middleware.auth import require_auth
@@ -230,10 +231,15 @@ def search_collection():
             for color in colors:
                 if color.strip():
                     if color == 'Colorless':
-                        color_filters.append(db.or_(Card.colors == None, Card.colors == []))
+                        # For colorless cards: NULL colors or empty array using jsonb_array_length
+                        color_filters.append(db.or_(
+                            Card.colors.is_(None),
+                            text("jsonb_array_length(cards_cache.colors) = 0")
+                        ))
                     else:
-                        # Check if the color is a member of the colors array
-                        color_filters.append(Card.colors.contains(color.strip().upper()))
+                        # Use JSONB operator @> to check if the colors array contains the color
+                        # The @> operator checks if the left JSONB value contains the right JSONB value
+                        color_filters.append(Card.colors.op('@>')(f'["{color.strip().upper()}"]'))
             if color_filters:
                 collection_query = collection_query.filter(db.or_(*color_filters))
         
