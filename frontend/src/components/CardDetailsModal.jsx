@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import PrintingEntry from './PrintingEntry';
 import * as api from '../api/mtgApi';
+import ManaCost from './ManaCost';
 
 const CardDetailsModal = ({ 
   card, 
@@ -202,11 +203,11 @@ const CardDetailsModal = ({
     }
   };
 
-  const formatManaSymbols = (manaCost) => {
-    if (!manaCost) return '';
+  //const formatManaSymbols = (manaCost) => {
+    //if (!manaCost) return '';
     // Enhanced mana symbol formatting - you can improve this further with actual mana symbol components
-    return manaCost.replace(/[{}]/g, '').replace(/([WUBRG])/g, '($1)');
-  };
+    //return manaCost.replace(/[{}]/g, '').replace(/([WUBRG])/g, '($1)');
+  //};
 
   const formatPrice = (price) => {
     if (!price || price === null) return 'N/A';
@@ -309,17 +310,26 @@ const CardDetailsModal = ({
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-3">
-                      <div>
-                        <span className="text-sm font-medium text-muted-foreground block mb-1">Mana Cost</span>
-                        <div className="font-mono text-xl bg-muted px-3 py-2 rounded">
-                          {formatManaSymbols(card.mana_cost) || 'No Cost'}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-muted-foreground block mb-1">Converted Mana Cost</span>
-                        <div className="text-2xl font-bold">{card.cmc || 0}</div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground block mb-1">Mana Cost</span>
+                      <div className="bg-muted px-3 py-2 rounded flex items-center justify-center min-h-[3rem]">
+                        {card.mana_cost ? (
+                          <ManaCost 
+                            manaCost={card.mana_cost} 
+                            size="lg" 
+                            spacing="gap-1"
+                            className="justify-center"
+                          />
+                        ) : (
+                          <span className="text-muted-foreground font-medium">No Cost</span>
+                        )}
                       </div>
                     </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground block mb-1">Converted Mana Cost</span>
+                      <div className="text-2xl font-bold text-center bg-muted px-3 py-2 rounded">{card.cmc || 0}</div>
+                    </div>
+                  </div>
                     
                     <div className="space-y-3">
                       <div>
