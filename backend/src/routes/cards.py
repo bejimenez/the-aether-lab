@@ -232,7 +232,8 @@ def search_collection():
                     if color == 'Colorless':
                         color_filters.append(db.or_(Card.colors == None, Card.colors == []))
                     else:
-                        color_filters.append(Card.colors.contains([color.strip().upper()]))
+                        # Check if the color is a member of the colors array
+                        color_filters.append(Card.colors.contains(color.strip().upper()))
             if color_filters:
                 collection_query = collection_query.filter(db.or_(*color_filters))
         
