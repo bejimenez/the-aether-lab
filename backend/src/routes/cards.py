@@ -148,7 +148,7 @@ def add_to_collection():
             ).filter(
                 db.or_(
                     CollectionCard.printing_details.is_(None),
-                    CollectionCard.printing_details == {}
+                    text("collection_cards.printing_details = '{}'::jsonb")
                 )
             ).first()
         
