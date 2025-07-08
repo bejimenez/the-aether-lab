@@ -107,7 +107,7 @@ def search_cards():
 
 @cards_bp.route('/collection/add', methods=['POST'])
 def add_to_collection():
-    """Add a card to user's collection"""
+    """Add a card to user's collection (legacy route with backward compatibility)"""
     data = request.get_json()
     
     if not data or 'scryfall_id' not in data:
@@ -116,6 +116,8 @@ def add_to_collection():
     scryfall_id = data['scryfall_id']
     quantity = data.get('quantity', 1)
     user_id = data.get('user_id', 1)  # For now, use default user_id
+    is_foil = data.get('is_foil', False)
+    condition = data.get('condition', 'near_mint')
     
     try:
         # Check if card exists in cache
@@ -123,11 +125,31 @@ def add_to_collection():
         if not card:
             return jsonify({'error': 'Card not found in cache'}), 404
         
-        # Check if user already has this card
+        # For backward compatibility, look for existing entries with default printing settings first
+        # Priority: exact match (including printing details) -> default printing -> any printing
+        existing_entry = None
+        
+        # First, look for exact match with same foil/condition
         existing_entry = CollectionCard.query.filter_by(
             user_id=user_id,
-            scryfall_id=scryfall_id
+            scryfall_id=scryfall_id,
+            is_foil=is_foil,
+            condition=condition
         ).first()
+        
+        # If no exact match, look for default printing (non-foil, near_mint, no specific printing details)
+        if not existing_entry and not is_foil and condition == 'near_mint':
+            existing_entry = CollectionCard.query.filter_by(
+                user_id=user_id,
+                scryfall_id=scryfall_id,
+                is_foil=False,
+                condition='near_mint'
+            ).filter(
+                db.or_(
+                    CollectionCard.printing_details.is_(None),
+                    CollectionCard.printing_details == {}
+                )
+            ).first()
         
         if existing_entry:
             # Update quantity
@@ -138,11 +160,22 @@ def add_to_collection():
                 'collection_card': existing_entry.to_dict()
             })
         else:
-            # Add new entry
+            # Add new entry with default printing details from the card data
+            printing_details = {
+                'set_code': card.set_code,
+                'set_name': card.set_name,
+                'collector_number': data.get('collector_number'),
+                'is_alternate_art': data.get('is_alternate_art', False),
+                'is_promo': data.get('is_promo', False)
+            }
+            
             collection_card = CollectionCard(
                 user_id=user_id,
                 scryfall_id=scryfall_id,
-                quantity=quantity
+                quantity=quantity,
+                is_foil=is_foil,
+                condition=condition,
+                printing_details=printing_details if any(printing_details.values()) else None
             )
             db.session.add(collection_card)
             db.session.commit()
@@ -782,3 +815,139 @@ def analyze_keywords(user_id):
         }
         for keyword, count in top_keywords
     ]
+
+@cards_bp.route('/collection/printings', methods=['POST'])
+def add_printing_variant():
+    """Add a specific printing variant to collection"""
+    data = request.get_json()
+    
+    if not data or 'scryfall_id' not in data:
+        return jsonify({'error': 'scryfall_id is required'}), 400
+    
+    scryfall_id = data['scryfall_id']
+    user_id = data.get('user_id', 1)  # For now, use default user_id
+    quantity = data.get('quantity', 1)
+    is_foil = data.get('is_foil', False)
+    condition = data.get('condition', 'near_mint')
+    
+    # Get set information from the card data or from data payload
+    printing_details = {
+        'set_code': data.get('set_code'),
+        'set_name': data.get('set_name'),
+        'collector_number': data.get('collector_number'),
+        'is_alternate_art': data.get('is_alternate_art', False),
+        'is_promo': data.get('is_promo', False)
+    }
+    
+    try:
+        # Check if card exists in cache
+        card = Card.query.filter_by(scryfall_id=scryfall_id).first()
+        if not card:
+            return jsonify({'error': 'Card not found in cache'}), 404
+        
+        # Check if this exact printing already exists
+        existing_entry = CollectionCard.query.filter_by(
+            user_id=user_id,
+            scryfall_id=scryfall_id,
+            is_foil=is_foil,
+            condition=condition
+        ).filter(
+            db.func.json_extract(CollectionCard.printing_details, '$.set_code') == printing_details.get('set_code')
+        ).first()
+        
+        if existing_entry:
+            # Update quantity
+            existing_entry.quantity += quantity
+            db.session.commit()
+            return jsonify({
+                'message': 'Printing variant quantity updated',
+                'collection_card': existing_entry.to_dict()
+            })
+        else:
+            # Add new printing variant
+            collection_card = CollectionCard(
+                user_id=user_id,
+                scryfall_id=scryfall_id,
+                quantity=quantity,
+                is_foil=is_foil,
+                condition=condition,
+                printing_details=printing_details
+            )
+            db.session.add(collection_card)
+            db.session.commit()
+            return jsonify({
+                'message': 'Printing variant added to collection',
+                'collection_card': collection_card.to_dict()
+            })
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to add printing variant: {str(e)}'}), 500
+
+@cards_bp.route('/collection/printings/<printing_id>', methods=['PUT'])
+def update_printing_variant(printing_id):
+    """Update a specific printing variant"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Request data is required'}), 400
+    
+    try:
+        collection_card = CollectionCard.query.filter_by(id=printing_id).first()
+        if not collection_card:
+            return jsonify({'error': 'Printing variant not found'}), 404
+        
+        # Update fields if provided
+        if 'quantity' in data:
+            collection_card.quantity = data['quantity']
+        if 'is_foil' in data:
+            collection_card.is_foil = data['is_foil']
+        if 'condition' in data:
+            collection_card.condition = data['condition']
+        if 'printing_details' in data:
+            collection_card.printing_details = data['printing_details']
+        
+        db.session.commit()
+        return jsonify({
+            'message': 'Printing variant updated',
+            'collection_card': collection_card.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to update printing variant: {str(e)}'}), 500
+
+@cards_bp.route('/collection/printings/<printing_id>', methods=['DELETE'])
+def delete_printing_variant(printing_id):
+    """Delete a specific printing variant"""
+    try:
+        collection_card = CollectionCard.query.filter_by(id=printing_id).first()
+        if not collection_card:
+            return jsonify({'error': 'Printing variant not found'}), 404
+        
+        db.session.delete(collection_card)
+        db.session.commit()
+        return jsonify({'message': 'Printing variant deleted'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to delete printing variant: {str(e)}'}), 500
+
+@cards_bp.route('/collection/printings/by-card/<scryfall_id>', methods=['GET'])
+def get_card_printings(scryfall_id):
+    """Get all printing variants for a specific card"""
+    user_id = request.args.get('user_id', 1, type=int)
+    
+    try:
+        printings = CollectionCard.query.filter_by(
+            user_id=user_id,
+            scryfall_id=scryfall_id
+        ).all()
+        
+        return jsonify({
+            'printings': [printing.to_dict() for printing in printings],
+            'total_copies': sum(p.quantity for p in printings)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get card printings: {str(e)}'}), 500
