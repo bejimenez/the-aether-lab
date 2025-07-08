@@ -32,6 +32,8 @@ const CardDetailsModal = ({
 }) => {
   const [pricingExpanded, setPricingExpanded] = useState(false);
   const [rulingsExpanded, setRulingsExpanded] = useState(false);
+  const [oracleExpanded, setOracleExpanded] = useState(true);
+  const [keywordsExpanded, setKeywordsExpanded] = useState(true);
   const [pricingData, setPricingData] = useState(null);
   const [rulingsData, setRulingsData] = useState(null);
   const [loadingPricing, setLoadingPricing] = useState(false);
@@ -69,6 +71,8 @@ const CardDetailsModal = ({
       setInitialDataLoaded(false);
       setPricingExpanded(false);
       setRulingsExpanded(false);
+      setOracleExpanded(true);
+      setKeywordsExpanded(true);
       setPrintingEntries([]);
       setTotalCopies(0);
     }
@@ -218,7 +222,7 @@ const CardDetailsModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-2xl font-bold">
             {card.name}
@@ -226,9 +230,9 @@ const CardDetailsModal = ({
         </DialogHeader>
 
         <div className="flex-1 overflow-auto">
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-            {/* Left Column - Card Image (spans 4 columns on xl screens) */}
-            <div className="xl:col-span-4 space-y-4">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+            {/* Left Column - Card Image (spans 3 columns on xl screens) */}
+            <div className="xl:col-span-3 space-y-3">
               {/* Prominent Card Image */}
               {card.image_uri && (
                 <div className="w-full flex justify-center">
@@ -300,23 +304,23 @@ const CardDetailsModal = ({
               </div>
             </div>
 
-            {/* Right Columns - Card Details (spans 8 columns on xl screens) */}
-            <div className="xl:col-span-8 space-y-4">
+            {/* Right Columns - Card Details (spans 9 columns on xl screens) */}
+            <div className="xl:col-span-9 space-y-3">
               {/* Basic Information Card */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-xl">Card Information</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground block mb-1">Mana Cost</span>
-                      <div className="bg-muted px-3 py-2 rounded flex items-center justify-center min-h-[3rem]">
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Mana Cost */}
+                    <div className="space-y-2">
+                      <span className="text-sm font-medium text-muted-foreground block">Mana Cost</span>
+                      <div className="bg-muted px-3 py-2 rounded flex items-center justify-center min-h-[2.5rem]">
                         {card.mana_cost ? (
                           <ManaCost 
                             manaCost={card.mana_cost} 
-                            size="lg" 
+                            size="md" 
                             spacing="gap-1"
                             className="justify-center"
                           />
@@ -325,26 +329,36 @@ const CardDetailsModal = ({
                         )}
                       </div>
                     </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground block mb-1">Converted Mana Cost</span>
-                      <div className="text-2xl font-bold text-center bg-muted px-3 py-2 rounded">{card.cmc || 0}</div>
-                    </div>
-                  </div>
                     
-                    <div className="space-y-3">
-                      <div>
-                        <span className="text-sm font-medium text-muted-foreground block mb-1">Type Line</span>
-                        <div className="text-lg font-medium">{card.type_line}</div>
-                      </div>
-                      
-                      {card.power && card.toughness && (
-                        <div>
-                          <span className="text-sm font-medium text-muted-foreground block mb-1">Power/Toughness</span>
-                          <div className="text-2xl font-bold">{card.power}/{card.toughness}</div>
-                        </div>
+                    {/* CMC */}
+                    <div className="space-y-2">
+                      <span className="text-sm font-medium text-muted-foreground block">CMC</span>
+                      <div className="text-xl font-bold text-center bg-muted px-3 py-2 rounded min-h-[2.5rem] flex items-center justify-center">{card.cmc || 0}</div>
+                    </div>
+                    
+                    {/* Power/Toughness or Type */}
+                    <div className="space-y-2">
+                      {card.power && card.toughness ? (
+                        <>
+                          <span className="text-sm font-medium text-muted-foreground block">Power/Toughness</span>
+                          <div className="text-xl font-bold text-center bg-muted px-3 py-2 rounded min-h-[2.5rem] flex items-center justify-center">{card.power}/{card.toughness}</div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-sm font-medium text-muted-foreground block">Type</span>
+                          <div className="text-sm font-medium text-center bg-muted px-3 py-2 rounded min-h-[2.5rem] flex items-center justify-center">{card.type_line}</div>
+                        </>
                       )}
                     </div>
                   </div>
+
+                  {/* Type Line (if Power/Toughness is shown above) */}
+                  {card.power && card.toughness && (
+                    <div className="pt-2">
+                      <span className="text-sm font-medium text-muted-foreground block mb-1">Type Line</span>
+                      <div className="text-lg font-medium">{card.type_line}</div>
+                    </div>
+                  )}
 
                   {/* Badges Section */}
                   <div className="flex gap-2 flex-wrap pt-2 border-t">
@@ -368,13 +382,30 @@ const CardDetailsModal = ({
               {/* Oracle Text */}
               {card.oracle_text && (
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-xl">Oracle Text</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-base leading-relaxed whitespace-pre-line bg-muted p-4 rounded-lg">
-                      {card.oracle_text}
-                    </div>
+                  <CardContent className="p-4">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setOracleExpanded(!oracleExpanded)}
+                      className="w-full justify-between p-3 h-auto hover:bg-muted"
+                    >
+                      <div className="flex items-center gap-3">
+                        <BookOpen className="w-5 h-5" />
+                        <span className="text-lg font-medium">Oracle Text</span>
+                      </div>
+                      {oracleExpanded ? (
+                        <ChevronDown className="w-5 h-5" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5" />
+                      )}
+                    </Button>
+                    
+                    {oracleExpanded && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="text-base leading-relaxed whitespace-pre-line bg-muted p-4 rounded-lg">
+                          {card.oracle_text}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -382,17 +413,34 @@ const CardDetailsModal = ({
               {/* Keywords */}
               {card.keywords && card.keywords.length > 0 && (
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-xl">Keywords & Mechanics</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {card.keywords.map((keyword, index) => (
-                        <Badge key={index} variant="outline" className="text-sm px-3 py-1">
-                          {keyword}
-                        </Badge>
-                      ))}
-                    </div>
+                  <CardContent className="p-4">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setKeywordsExpanded(!keywordsExpanded)}
+                      className="w-full justify-between p-3 h-auto hover:bg-muted"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">🏷️</span>
+                        <span className="text-lg font-medium">Keywords & Mechanics</span>
+                      </div>
+                      {keywordsExpanded ? (
+                        <ChevronDown className="w-5 h-5" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5" />
+                      )}
+                    </Button>
+                    
+                    {keywordsExpanded && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="flex flex-wrap gap-2">
+                          {card.keywords.map((keyword, index) => (
+                            <Badge key={index} variant="outline" className="text-sm px-3 py-1">
+                              {keyword}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -421,24 +469,24 @@ const CardDetailsModal = ({
                     </Button>
                     
                     {pricingExpanded && (
-                      <div className="mt-4 pt-4 border-t space-y-3">
+                      <div className="mt-3 pt-3 border-t space-y-2">
                         {pricingData ? (
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="bg-muted p-3 rounded text-center">
-                              <div className="text-sm text-muted-foreground mb-1">USD</div>
-                              <div className="text-lg font-bold">{formatPrice(pricingData.usd)}</div>
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div className="bg-muted p-2 rounded text-center">
+                              <div className="text-xs text-muted-foreground mb-1">USD</div>
+                              <div className="text-sm font-bold">{formatPrice(pricingData.usd)}</div>
                             </div>
-                            <div className="bg-muted p-3 rounded text-center">
-                              <div className="text-sm text-muted-foreground mb-1">USD Foil</div>
-                              <div className="text-lg font-bold">{formatPrice(pricingData.usd_foil)}</div>
+                            <div className="bg-muted p-2 rounded text-center">
+                              <div className="text-xs text-muted-foreground mb-1">USD Foil</div>
+                              <div className="text-sm font-bold">{formatPrice(pricingData.usd_foil)}</div>
                             </div>
-                            <div className="bg-muted p-3 rounded text-center">
-                              <div className="text-sm text-muted-foreground mb-1">EUR</div>
-                              <div className="text-lg font-bold">{formatPrice(pricingData.eur)}</div>
+                            <div className="bg-muted p-2 rounded text-center">
+                              <div className="text-xs text-muted-foreground mb-1">EUR</div>
+                              <div className="text-sm font-bold">{formatPrice(pricingData.eur)}</div>
                             </div>
-                            <div className="bg-muted p-3 rounded text-center">
-                              <div className="text-sm text-muted-foreground mb-1">TIX</div>
-                              <div className="text-lg font-bold">{formatPrice(pricingData.tix)}</div>
+                            <div className="bg-muted p-2 rounded text-center">
+                              <div className="text-xs text-muted-foreground mb-1">TIX</div>
+                              <div className="text-sm font-bold">{formatPrice(pricingData.tix)}</div>
                             </div>
                           </div>
                         ) : (
@@ -473,7 +521,7 @@ const CardDetailsModal = ({
                     </Button>
                     
                     {rulingsExpanded && (
-                      <div className="mt-4 pt-4 border-t space-y-4">
+                      <div className="mt-3 pt-3 border-t space-y-3">
                         {rulingsData && rulingsData.length > 0 ? (
                           rulingsData.map((ruling, index) => (
                             <div key={index} className="border-l-4 border-primary pl-4 py-2">
