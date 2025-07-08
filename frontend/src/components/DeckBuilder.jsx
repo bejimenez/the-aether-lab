@@ -8,7 +8,7 @@ import { ArrowLeft, Save, Plus, Search, Minus, Trash2 } from 'lucide-react';
 import * as api from '../api/mtgApi.js';
 import ManaCost from './ManaCost';
 
-const DeckBuilder = ({ deck, currentUser, onClose }) => {
+const DeckBuilder = ({ deck, userProfile, onClose }) => {
   const [deckDetails, setDeckDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,8 +24,11 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
 
   useEffect(() => {
     loadDeckDetails();
-    loadCollection();
-  }, [deck.id]);
+    // Only load collection if we have a valid user profile with an ID
+    if (userProfile?.id) {
+      loadCollection();
+    }
+  }, [deck.id, userProfile?.id]);
 
   // Filter collection based on search
   useEffect(() => {
@@ -60,9 +63,15 @@ const DeckBuilder = ({ deck, currentUser, onClose }) => {
   };
 
   const loadCollection = async () => {
+    // Guard clause: Don't try to load collection without a valid user ID
+    if (!userProfile?.id) {
+      console.warn('Cannot load collection: no user ID available');
+      return;
+    }
+
     try {
       setCollectionLoading(true);
-      const data = await api.fetchCollection(currentUser);
+      const data = await api.fetchCollection(userProfile.id);
       
       // Handle the actual API response structure
       let collectionCards = [];
