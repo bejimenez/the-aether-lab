@@ -18,6 +18,8 @@ import {
   Plus,
   Minus
 } from 'lucide-react';
+import PrintingEntry from './PrintingEntry';
+import * as api from '../api/mtgApi';
 
 const CardDetailsModal = ({ 
   card, 
@@ -35,6 +37,11 @@ const CardDetailsModal = ({
   const [loadingRulings, setLoadingRulings] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
+  // Printing variants state
+  const [printingEntries, setPrintingEntries] = useState([]);
+  const [loadingPrintings, setLoadingPrintings] = useState(false);
+  const [totalCopies, setTotalCopies] = useState(0);
+
   // Rate limiting: Track last API call time to respect Scryfall's 50-100ms between requests
   const lastApiCallRef = useRef(0);
   const API_RATE_LIMIT_MS = 100; // Conservative 100ms between calls
@@ -46,6 +53,13 @@ const CardDetailsModal = ({
     }
   }, [isOpen, card, initialDataLoaded]);
 
+  // Fetch printing variants when modal opens
+  useEffect(() => {
+    if (isOpen && card?.scryfall_id) {
+      fetchPrintingVariants();
+    }
+  }, [isOpen, card]);
+
   // Reset state when modal closes or card changes
   useEffect(() => {
     if (!isOpen || !card) {
@@ -54,6 +68,8 @@ const CardDetailsModal = ({
       setInitialDataLoaded(false);
       setPricingExpanded(false);
       setRulingsExpanded(false);
+      setPrintingEntries([]);
+      setTotalCopies(0);
     }
   }, [isOpen, card]);
 
@@ -102,6 +118,87 @@ const CardDetailsModal = ({
       setLoadingPricing(false);
       setLoadingRulings(false);
       setInitialDataLoaded(true);
+    }
+  };
+
+  // Printing variants management functions
+  const fetchPrintingVariants = async () => {
+    if (!card?.scryfall_id) return;
+    
+    setLoadingPrintings(true);
+    try {
+      const response = await api.getCardPrintings(card.scryfall_id, 1); // TODO: use actual user ID
+      const data = await response.json();
+      
+      if (response.ok) {
+        setPrintingEntries(data.printings || []);
+        setTotalCopies(data.total_copies || 0);
+      } else {
+        console.error('Failed to fetch printing variants:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching printing variants:', error);
+    } finally {
+      setLoadingPrintings(false);
+    }
+  };
+
+  const handleAddPrinting = async () => {
+    if (!card) return;
+    
+    const newPrinting = {
+      scryfall_id: card.scryfall_id,
+      user_id: 1, // TODO: use actual user ID
+      quantity: 1,
+      is_foil: false,
+      condition: 'near_mint',
+      set_code: card.set_code,
+      set_name: card.set_name,
+      collector_number: '',
+      is_alternate_art: false,
+      is_promo: false
+    };
+
+    try {
+      const response = await api.addPrintingVariant(newPrinting);
+      const data = await response.json();
+      
+      if (response.ok) {
+        await fetchPrintingVariants(); // Refresh the list
+      } else {
+        console.error('Failed to add printing variant:', data.error);
+      }
+    } catch (error) {
+      console.error('Error adding printing variant:', error);
+    }
+  };
+
+  const handleUpdatePrinting = async (updatedEntry) => {
+    try {
+      const response = await api.updatePrintingVariant(updatedEntry.id, updatedEntry);
+      const data = await response.json();
+      
+      if (response.ok) {
+        await fetchPrintingVariants(); // Refresh the list
+      } else {
+        console.error('Failed to update printing variant:', data.error);
+      }
+    } catch (error) {
+      console.error('Error updating printing variant:', error);
+    }
+  };
+
+  const handleDeletePrinting = async (printingId) => {
+    try {
+      const response = await api.deletePrintingVariant(printingId);
+      
+      if (response.ok) {
+        await fetchPrintingVariants(); // Refresh the list
+      } else {
+        console.error('Failed to delete printing variant');
+      }
+    } catch (error) {
+      console.error('Error deleting printing variant:', error);
     }
   };
 
@@ -155,33 +252,50 @@ const CardDetailsModal = ({
                   </Button>
                 )}
                 
-                {collectionCard && onUpdateQuantity && (
-                  <div className="bg-muted rounded-lg p-4">
-                    <div className="text-sm font-medium text-center mb-2">In Collection</div>
-                    <div className="flex items-center justify-center gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onUpdateQuantity(card.scryfall_id, collectionCard.quantity - 1)}
-                        disabled={collectionCard.quantity <= 0}
-                        className="h-10 w-10 p-0"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      <span className="px-4 py-2 bg-background rounded text-lg font-bold min-w-[4rem] text-center">
-                        {collectionCard.quantity}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onUpdateQuantity(card.scryfall_id, collectionCard.quantity + 1)}
-                        className="h-10 w-10 p-0"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                {/* My Copies Section - Enhanced Collection Tracking */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      📚 My Copies ({totalCopies})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingPrintings ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        Loading printing variants...
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Existing copies */}
+                        {printingEntries.length > 0 ? (
+                          printingEntries.map((entry, index) => (
+                            <PrintingEntry 
+                              key={entry.id || index}
+                              entry={entry}
+                              onUpdate={handleUpdatePrinting}
+                              onDelete={handleDeletePrinting}
+                            />
+                          ))
+                        ) : (
+                          <div className="text-center text-muted-foreground py-4">
+                            No copies in collection
+                          </div>
+                        )}
+                        
+                        {/* Add new printing button */}
+                        <Button 
+                          variant="outline" 
+                          onClick={handleAddPrinting}
+                          className="w-full"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Different Printing
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </div>
 

@@ -320,3 +320,42 @@ export const refreshToken = async () => {
   }
   return data;
 };
+
+// --- Printing Variants Management ---
+
+// Get all printing variants for a specific card
+export const getCardPrintings = (scryfallId, userId) => {
+  return fetch(`${API_BASE_URL}/collection/printings/by-card/${scryfallId}?user_id=${userId}`);
+};
+
+// Add a new printing variant
+export const addPrintingVariant = (printingData) => {
+  return fetch(`${API_BASE_URL}/collection/printings`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(printingData),
+  });
+};
+
+// Update a printing variant
+export const updatePrintingVariant = (printingId, printingData) => {
+  return fetch(`${API_BASE_URL}/collection/printings/${printingId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(printingData),
+  });
+};
+
+// Delete a printing variant
+export const deletePrintingVariant = (printingId) => {
+  return fetch(`${API_BASE_URL}/collection/printings/${printingId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+};

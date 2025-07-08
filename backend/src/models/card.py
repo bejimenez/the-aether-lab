@@ -56,14 +56,20 @@ class CollectionCard(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     scryfall_id = db.Column(db.String(36), db.ForeignKey('cards_cache.scryfall_id'), nullable=False, index=True)
     quantity = db.Column(db.Integer, default=1, nullable=False)
+    is_foil = db.Column(db.Boolean, default=False, nullable=False)
+    condition = db.Column(db.String(20), default='near_mint', nullable=False)
+    printing_details = db.Column(db.JSON, nullable=True)
     added_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
     updated_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     card = db.relationship('Card', backref='collection_entries')
     
-    # Unique constraint
-    __table_args__ = (db.UniqueConstraint('user_id', 'scryfall_id', name='unique_user_card'),)
+    # Updated unique constraint to allow multiple printings of the same card
+    # We'll use a combination of user_id, scryfall_id, is_foil, condition, and printing details hash
+    __table_args__ = (
+        db.Index('idx_user_card_printing', 'user_id', 'scryfall_id', 'is_foil', 'condition'),
+    )
     
     def __repr__(self):
         return f'<CollectionCard user_id={self.user_id} card={self.scryfall_id} qty={self.quantity}>'
@@ -74,6 +80,9 @@ class CollectionCard(db.Model):
             'user_id': self.user_id,
             'scryfall_id': self.scryfall_id,
             'quantity': self.quantity,
+            'is_foil': self.is_foil,
+            'condition': self.condition,
+            'printing_details': self.printing_details,
             'added_at': self.added_at.isoformat() if self.added_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'card': self.card.to_dict() if self.card else None
