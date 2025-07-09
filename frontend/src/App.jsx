@@ -17,6 +17,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider, useToast } from './components/ui/toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useAchievements } from './hooks/useAchievements';
+import AchievementTab from './components/AchievementTab';
+import { AchievementNotification } from './components/AchievementNotification';
 import './App.css';
 
 // Optional: Help overlay component
@@ -131,6 +133,7 @@ function AppContent() {
   const [selectedCardForDetails, setSelectedCardForDetails] = useState(null);
   const [isCardDetailsOpen, setCardDetailsOpen] = useState(false);
   const [collectionUpdateTrigger, setCollectionUpdateTrigger] = useState(0);
+  const [currentCelebration, setCurrentCelebration] = useState(null);
   
   // Ref for search input to enable focus via keyboard shortcut
   const searchInputRef = useRef(null);
@@ -229,39 +232,53 @@ const handleCloseCardDetails = () => {
   setCardDetailsOpen(false);
   setSelectedCardForDetails(null);
 };
-
-  const handleAddToCollection = useCallback(async (card, quantity = 1) => {
-  if (!effectiveUserId) return;
+// ✅ Define handleAchievementUnlocked FIRST
+const handleAchievementUnlocked = useCallback((achievement) => {
+  // Show confetti celebration
+  setCurrentCelebration(achievement);
   
+  // Show toast notification
+  addToast(
+    '🏆 Achievement Unlocked!',
+    `${achievement.name}: ${achievement.description}`,
+    'success'
+  );
+}, [addToast]);
+
+// ✅ Define handleCelebrationComplete SECOND
+const handleCelebrationComplete = useCallback(() => {
+  setCurrentCelebration(null);
+}, []);
+
+// ✅ Now define handleAddToCollection AFTER handleAchievementUnlocked
+const handleAddToCollection = useCallback(async (card, quantity = 1) => {
+  if (!effectiveUserId) return;
+ 
   try {
     // FIX: Use card.scryfall_id instead of card.id
     await api.addToCollection(effectiveUserId, card.scryfall_id, quantity);
     await loadUserData();
-    
+   
     // Force SearchTab to update by incrementing trigger
     setCollectionUpdateTrigger(prev => prev + 1);
-    
+   
     // Check for new achievements after adding card
     const achievementResult = await checkAchievementsAfterCardAdd();
-    
+   
     // Show success toast
     addToast('Card Added!', 'Your card has been added to your collection.', 'success');
-    
+   
     // Show achievement notifications if any were earned
     if (achievementResult?.newly_completed?.length > 0) {
       achievementResult.newly_completed.forEach(achievement => {
-        addToast(
-          '🏆 Achievement Unlocked!', 
-          `${achievement.name}: ${achievement.description}`, 
-          'success'
-        );
+        handleAchievementUnlocked(achievement); // ✅ Now this is defined!
       });
     }
   } catch (error) {
     console.error("Failed to add to collection:", error);
     addToast('Error', 'Failed to add card to collection.', 'error');
   }
-}, [effectiveUserId, loadUserData, addToast, checkAchievementsAfterCardAdd]);
+}, [effectiveUserId, loadUserData, addToast, checkAchievementsAfterCardAdd, handleAchievementUnlocked]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
   if (!effectiveUserId) return;
@@ -296,30 +313,6 @@ const handleCloseCardDetails = () => {
     console.error("Failed to update quantity:", error);
   }
 }, [effectiveUserId, loadUserData]);
-
-  const handleCreateDeck = useCallback(async (deckData) => {
-    if (!effectiveUserId) return;
-    
-    try {
-      await api.createDeck(effectiveUserId, deckData);
-      await loadUserData();
-      setCreateDeckOpen(false);
-      
-      // Check for deck-related achievements
-      const achievementResult = await checkAchievementsAfterCardAdd();
-      if (achievementResult?.newly_completed?.length > 0) {
-        achievementResult.newly_completed.forEach(achievement => {
-          addToast(
-            '🏆 Achievement Unlocked!', 
-            `${achievement.name}: ${achievement.description}`, 
-            'success'
-          );
-        });
-      }
-    } catch (error) {
-      console.error("Failed to create deck:", error);
-    }
-  }, [effectiveUserId, loadUserData, checkAchievementsAfterCardAdd, addToast]);
 
   const handleDeleteDeck = useCallback(async (deckId) => {
     if (!effectiveUserId) return;
@@ -471,6 +464,17 @@ const handleCloseCardDetails = () => {
               <TrendingUp className="w-4 h-4" />
               Statistics
             </TabsTrigger>
+            <TabsTrigger value="achievements">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4" />
+                Achievements
+                {unreadNotifications.length > 0 && (
+                  <span className="bg-red-500 text-white text-xs px-1 py-0.5 rounded-full">
+                    {unreadNotifications.length}
+                  </span>
+                )}
+              </div>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="search" className="mt-6">
@@ -518,6 +522,14 @@ const handleCloseCardDetails = () => {
               loading={loading}
             />
           </TabsContent>
+
+          <TabsContent value="achievements">
+            <AchievementTab
+              achievements={achievements}
+              loading={achievementsLoading}
+              onRefresh={fetchAchievements}
+            />
+          </TabsContent>
         </Tabs>
 
         {/* Dialogs */}
@@ -555,6 +567,11 @@ const handleCloseCardDetails = () => {
       
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp />
+
+      <ConfettiCelebration
+        achievement={currentCelebration}
+        onComplete={handleCelebrationComplete}
+      />
     </div>
   );
 }
