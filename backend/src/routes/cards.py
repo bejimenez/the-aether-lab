@@ -156,9 +156,11 @@ def add_to_collection():
             # Update quantity
             existing_entry.quantity += quantity
             db.session.commit()
+
+            
             return jsonify({
                 'message': 'Card quantity updated',
-                'collection_card': existing_entry.to_dict()
+                'collection_card': existing_entry.to_dict(),
             })
         else:
             # Add new entry with default printing details from the card data
@@ -189,7 +191,8 @@ def add_to_collection():
             return jsonify({
                 'message': 'Card added to collection',
                 'collection_card': collection_card.to_dict(),
-                'newly_completed_achievements': len(newly_completed)
+                'newly_completed_achievements': len(newly_completed),
+                'achievements': [a.to_dict() for a in newly_completed]
             })
             
     except Exception as e:
