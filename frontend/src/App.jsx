@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from './api/mtgApi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Library, Layers, TrendingUp, LogOut } from 'lucide-react';
+import { Search, Library, Layers, TrendingUp, LogOut, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import MobileMenu from './components/MobileMenu';
@@ -16,6 +16,7 @@ import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider, useToast } from './components/ui/toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useAchievements } from './hooks/useAchievements';
 import './App.css';
 
 // Optional: Help overlay component
@@ -98,6 +99,17 @@ function AppContent() {
   
   // Get toast functionality
   const { addToast } = useToast();
+
+  // Achievement hook
+  const {
+    achievements,
+    notifications,
+    loading: achievementsLoading,
+    triggerAchievementCheck,
+    checkAchievementsAfterCardAdd,
+    unreadNotifications,
+    totalPoints
+  } = useAchievements(userProfile?.id);
 
   // Keep all your existing state
   const [searchResults, setSearchResults] = useState([]);
@@ -222,13 +234,27 @@ const handleCloseCardDetails = () => {
     // Force SearchTab to update by incrementing trigger
     setCollectionUpdateTrigger(prev => prev + 1);
     
+    // Check for new achievements after adding card
+    const achievementResult = await checkAchievementsAfterCardAdd();
+    
     // Show success toast
     addToast('Card Added!', 'Your card has been added to your collection.', 'success');
+    
+    // Show achievement notifications if any were earned
+    if (achievementResult?.newly_completed?.length > 0) {
+      achievementResult.newly_completed.forEach(achievement => {
+        addToast(
+          '🏆 Achievement Unlocked!', 
+          `${achievement.name}: ${achievement.description}`, 
+          'success'
+        );
+      });
+    }
   } catch (error) {
     console.error("Failed to add to collection:", error);
     addToast('Error', 'Failed to add card to collection.', 'error');
   }
-}, [userProfile?.id, loadUserData, addToast]);
+}, [userProfile?.id, loadUserData, addToast, checkAchievementsAfterCardAdd]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
   if (!userProfile?.id) return;
@@ -271,10 +297,22 @@ const handleCloseCardDetails = () => {
       await api.createDeck(userProfile.id, deckData);
       await loadUserData();
       setCreateDeckOpen(false);
+      
+      // Check for deck-related achievements
+      const achievementResult = await checkAchievementsAfterCardAdd();
+      if (achievementResult?.newly_completed?.length > 0) {
+        achievementResult.newly_completed.forEach(achievement => {
+          addToast(
+            '🏆 Achievement Unlocked!', 
+            `${achievement.name}: ${achievement.description}`, 
+            'success'
+          );
+        });
+      }
     } catch (error) {
       console.error("Failed to create deck:", error);
     }
-  }, [userProfile?.id, loadUserData]);
+  }, [userProfile?.id, loadUserData, checkAchievementsAfterCardAdd, addToast]);
 
   const handleDeleteDeck = useCallback(async (deckId) => {
     if (!userProfile?.id) return;
@@ -309,6 +347,35 @@ const handleCloseCardDetails = () => {
     }
   };
 
+  const handleManualAchievementCheck = async () => {
+    try {
+      const result = await triggerAchievementCheck();
+      
+      if (result.newly_completed && result.newly_completed.length > 0) {
+        addToast(
+          '🏆 Achievement Check Complete!',
+          `${result.newly_completed.length} new achievements earned!`,
+          'success'
+        );
+        result.newly_completed.forEach(achievement => {
+          addToast(
+            '🏆 Achievement Unlocked!',
+            `${achievement.name}: ${achievement.description}`,
+            'success'
+          );
+        });
+      } else {
+        addToast(
+          'Achievement Check Complete',
+          'No new achievements earned at this time.',
+          'info'
+        );
+      }
+    } catch (error) {
+      addToast('Error', 'Failed to check achievements.', 'error');
+    }
+  };
+
   // Show loading spinner while checking authentication
   if (authLoading) {
     return (
@@ -340,6 +407,24 @@ const handleCloseCardDetails = () => {
           
           {/* Desktop Header Controls - hidden on mobile */}
           <div className="hidden md:flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Trophy className="w-4 h-4" />
+              <span>{totalPoints} pts</span>
+              {unreadNotifications.length > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  {unreadNotifications.length}
+                </span>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualAchievementCheck}
+              disabled={achievementsLoading}
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              {achievementsLoading ? 'Checking...' : 'Check Achievements'}
+            </Button>
             <span className="text-sm text-muted-foreground">
               Welcome, {userProfile?.username || user?.email || 'Demo User'}
             </span>

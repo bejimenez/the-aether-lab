@@ -62,7 +62,7 @@ def get_achievement_notifications():
         })
         
     except Exception as e:
-        return jsonify({'error': f'Failed to get notifications: {str(e)}'}), 500
+        return jsonify({'error': f'Failed to get notifications: {str(e)}'}'), 500
 
 @achievements_bp.route('/achievements/notifications/<int:notification_id>/mark-viewed', methods=['PUT'])
 def mark_notification_viewed(notification_id):
