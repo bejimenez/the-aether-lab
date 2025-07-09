@@ -100,6 +100,13 @@ function AppContent() {
   // Get toast functionality
   const { addToast } = useToast();
 
+  // TEMPORARY: Demo mode for testing layout (add ?demo=true to URL)
+  const urlParams = new URLSearchParams(window.location.search);
+  const demoMode = urlParams.get('demo') === 'true';
+  
+  // In demo mode, use user ID 1 for testing achievements
+  const effectiveUserId = demoMode ? 1 : userProfile?.id;
+
   // Achievement hook
   const {
     achievements,
@@ -109,7 +116,7 @@ function AppContent() {
     checkAchievementsAfterCardAdd,
     unreadNotifications,
     totalPoints
-  } = useAchievements(userProfile?.id);
+  } = useAchievements(effectiveUserId);
 
   // Keep all your existing state
   const [searchResults, setSearchResults] = useState([]);
@@ -168,15 +175,15 @@ function AppContent() {
     },
   });
 
-  // Updated loadUserData to use userProfile.id instead of currentUser
+  // Updated loadUserData to use effectiveUserId instead of userProfile.id
   const loadUserData = useCallback(async () => {
-    if (!userProfile?.id) return;
+    if (!effectiveUserId) return;
     setLoading(true);
     try {
       const [collectionData, statsData, decksData] = await Promise.all([
-        api.fetchCollection(userProfile.id),
-        api.fetchCollectionStats(userProfile.id),
-        api.fetchDecks(userProfile.id)
+        api.fetchCollection(effectiveUserId),
+        api.fetchCollectionStats(effectiveUserId),
+        api.fetchDecks(effectiveUserId)
       ]);
       setCollection(collectionData.collection_cards || []);
       setCollectionStats(statsData);
@@ -186,7 +193,7 @@ function AppContent() {
     } finally {
       setLoading(false);
     }
-  }, [userProfile?.id]);
+  }, [effectiveUserId]);
 
   // Load user data when userProfile changes
   useEffect(() => {
@@ -224,11 +231,11 @@ const handleCloseCardDetails = () => {
 };
 
   const handleAddToCollection = useCallback(async (card, quantity = 1) => {
-  if (!userProfile?.id) return;
+  if (!effectiveUserId) return;
   
   try {
     // FIX: Use card.scryfall_id instead of card.id
-    await api.addToCollection(userProfile.id, card.scryfall_id, quantity);
+    await api.addToCollection(effectiveUserId, card.scryfall_id, quantity);
     await loadUserData();
     
     // Force SearchTab to update by incrementing trigger
@@ -254,13 +261,13 @@ const handleCloseCardDetails = () => {
     console.error("Failed to add to collection:", error);
     addToast('Error', 'Failed to add card to collection.', 'error');
   }
-}, [userProfile?.id, loadUserData, addToast, checkAchievementsAfterCardAdd]);
+}, [effectiveUserId, loadUserData, addToast, checkAchievementsAfterCardAdd]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
-  if (!userProfile?.id) return;
+  if (!effectiveUserId) return;
   
   try {
-    await api.removeFromCollection(userProfile.id, cardId);
+    await api.removeFromCollection(effectiveUserId, cardId);
     await loadUserData();
     
     // Force SearchTab to update by incrementing trigger
@@ -269,16 +276,16 @@ const handleCloseCardDetails = () => {
   } catch (error) {
     console.error("Failed to remove from collection:", error);
   }
-}, [userProfile?.id, loadUserData]);
+}, [effectiveUserId, loadUserData]);
 
   const handleUpdateQuantity = useCallback(async (cardId, newQuantity) => {
-  if (!userProfile?.id) return;
+  if (!effectiveUserId) return;
   
   try {
     if (newQuantity <= 0) {
-      await api.removeFromCollection(userProfile.id, cardId);
+      await api.removeFromCollection(effectiveUserId, cardId);
     } else {
-      await api.updateCardQuantity(userProfile.id, cardId, newQuantity);
+      await api.updateCardQuantity(effectiveUserId, cardId, newQuantity);
     }
     await loadUserData();
     
@@ -288,13 +295,13 @@ const handleCloseCardDetails = () => {
   } catch (error) {
     console.error("Failed to update quantity:", error);
   }
-}, [userProfile?.id, loadUserData]);
+}, [effectiveUserId, loadUserData]);
 
   const handleCreateDeck = useCallback(async (deckData) => {
-    if (!userProfile?.id) return;
+    if (!effectiveUserId) return;
     
     try {
-      await api.createDeck(userProfile.id, deckData);
+      await api.createDeck(effectiveUserId, deckData);
       await loadUserData();
       setCreateDeckOpen(false);
       
@@ -312,10 +319,10 @@ const handleCloseCardDetails = () => {
     } catch (error) {
       console.error("Failed to create deck:", error);
     }
-  }, [userProfile?.id, loadUserData, checkAchievementsAfterCardAdd, addToast]);
+  }, [effectiveUserId, loadUserData, checkAchievementsAfterCardAdd, addToast]);
 
   const handleDeleteDeck = useCallback(async (deckId) => {
-    if (!userProfile?.id) return;
+    if (!effectiveUserId) return;
     
     try {
       await api.deleteDeck(deckId);
@@ -323,13 +330,13 @@ const handleCloseCardDetails = () => {
     } catch (error) {
       console.error("Failed to delete deck:", error);
     }
-  }, [userProfile?.id, loadUserData]);
+  }, [effectiveUserId, loadUserData]);
 
   const handleBuildAroundCard = useCallback(async (card) => {
-    if (!userProfile?.id) return;
+    if (!effectiveUserId) return;
     
     try {
-      const response = await api.buildDeckAroundCard(userProfile.id, card.scryfall_id);
+      const response = await api.buildDeckAroundCard(effectiveUserId, card.scryfall_id);
       if (response.deck) {
         setSelectedDeck(response.deck);
         setDeckBuilderOpen(true);
@@ -337,7 +344,7 @@ const handleCloseCardDetails = () => {
     } catch (error) {
       console.error("Failed to build deck around card:", error);
     }
-  }, [userProfile?.id]);
+  }, [effectiveUserId]);
 
   const handleSignOut = async () => {
     try {
@@ -389,10 +396,6 @@ const handleCloseCardDetails = () => {
   }
 
   // If user is not logged in, show login component
-  // TEMPORARY: Demo mode for testing layout (add ?demo=true to URL)
-  const urlParams = new URLSearchParams(window.location.search);
-  const demoMode = urlParams.get('demo') === 'true';
-  
   if (!user && !demoMode) {
     return <Login />;
   }
@@ -489,7 +492,7 @@ const handleCloseCardDetails = () => {
               onRemoveFromCollection={handleRemoveFromCollection}
               onUpdateQuantity={handleUpdateQuantity}
               onBuildAroundCard={handleBuildAroundCard}
-              userId={userProfile?.id}
+              userId={effectiveUserId}
               loading={loading}
             />
           </TabsContent>
