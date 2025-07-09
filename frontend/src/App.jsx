@@ -467,28 +467,28 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
 
         {/* Main tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1">
-            <TabsTrigger value="search" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+          <TabsList className="w-full flex md:grid md:grid-cols-5 gap-1 overflow-x-auto md:overflow-x-visible">
+            <TabsTrigger value="search" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap">
               <Search className="w-3 h-3 md:w-4 md:h-4" />
               <span className="hidden sm:inline">Search</span>
               <span className="sm:hidden">Search</span>
             </TabsTrigger>
-            <TabsTrigger value="collection" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+            <TabsTrigger value="collection" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap">
               <Library className="w-3 h-3 md:w-4 md:h-4" />
               <span className="hidden md:inline">Collection ({collection.length})</span>
               <span className="md:hidden">Collection</span>
             </TabsTrigger>
-            <TabsTrigger value="decks" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+            <TabsTrigger value="decks" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap">
               <Layers className="w-3 h-3 md:w-4 md:h-4" />
               <span className="hidden md:inline">Decks ({decks.length})</span>
               <span className="md:hidden">Decks</span>
             </TabsTrigger>
-            <TabsTrigger value="stats" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+            <TabsTrigger value="stats" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap">
               <TrendingUp className="w-3 h-3 md:w-4 md:h-4" />
               <span className="hidden sm:inline">Statistics</span>
               <span className="sm:hidden">Stats</span>
             </TabsTrigger>
-            <TabsTrigger value="achievements" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+            <TabsTrigger value="achievements" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap">
               <div className="flex items-center gap-1 md:gap-2">
                 <Trophy className="w-3 h-3 md:w-4 md:h-4" />
                 <span className="hidden md:inline">Achievements</span>
