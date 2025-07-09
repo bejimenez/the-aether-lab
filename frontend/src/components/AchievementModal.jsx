@@ -1,3 +1,5 @@
+import { getAchievementIcon, getRarityConfig } from "./AchievementCard";
+
 export const AchievementModal = ({ achievement, isOpen, onClose }) => {
   if (!achievement) return null;
 

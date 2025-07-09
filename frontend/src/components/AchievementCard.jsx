@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Trophy, Star, Crown, Gem, Lock, Calendar, Target, Award } from 'lucide-react';
 
 // Icon mapping for achievements
-const getAchievementIcon = (iconName) => {
+export const getAchievementIcon = (iconName) => {
   const icons = {
     'star': Star,
     'trophy': Trophy,
@@ -31,7 +31,7 @@ const getAchievementIcon = (iconName) => {
 };
 
 // Rarity color mapping
-const getRarityConfig = (rarity) => {
+export const getRarityConfig = (rarity) => {
   const configs = {
     common: {
       bgColor: 'bg-gray-100 dark:bg-gray-800',
