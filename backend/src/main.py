@@ -12,11 +12,12 @@ from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from src.models.user import db, User
 from src.models.card import Card, CollectionCard, Deck, DeckCard
-from src.models.achievement import Achievement, UserAchievement, AchievementNotification
 from src.routes.user import user_bp
 from src.routes.cards import cards_bp
 from src.routes.decks import decks_bp
 from src.routes.achievements import achievements_bp
+from src.models.achievement import Achievement, UserAchievement, AchievementNotification
+
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'asdf#FGSgvasgf$5$WGT')
