@@ -1,4 +1,8 @@
 import { getAchievementIcon, getRarityConfig } from "./AchievementCard";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Lock, Trophy } from 'lucide-react';
 
 export const AchievementModal = ({ achievement, isOpen, onClose }) => {
   if (!achievement) return null;
