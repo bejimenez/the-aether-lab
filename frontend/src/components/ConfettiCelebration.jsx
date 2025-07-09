@@ -399,3 +399,4 @@ const AchievementDemo = () => {
 };
 
 export default AchievementDemo;
+export { AchievementCelebration };

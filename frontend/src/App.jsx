@@ -19,6 +19,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useAchievements } from './hooks/useAchievements';
 import AchievementTab from './components/AchievementTab';
 import { AchievementNotification } from './components/AchievementNotification';
+import { AchievementCelebration } from './components/ConfettiCelebration';
 import './App.css';
 
 // Optional: Help overlay component
@@ -116,6 +117,7 @@ function AppContent() {
     loading: achievementsLoading,
     triggerAchievementCheck,
     checkAchievementsAfterCardAdd,
+    fetchAchievements,
     unreadNotifications,
     totalPoints
   } = useAchievements(effectiveUserId);
@@ -325,6 +327,20 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
     }
   }, [effectiveUserId, loadUserData]);
 
+  const handleCreateDeck = useCallback(async (deckData) => {
+    if (!effectiveUserId) return;
+    
+    try {
+      await api.createDeck(effectiveUserId, deckData);
+      await loadUserData();
+      setCreateDeckOpen(false);
+      addToast('Deck Created', 'Your new deck has been created successfully.', 'success');
+    } catch (error) {
+      console.error("Failed to create deck:", error);
+      addToast('Error', 'Failed to create deck.', 'error');
+    }
+  }, [effectiveUserId, loadUserData, addToast]);
+
   const handleBuildAroundCard = useCallback(async (card) => {
     if (!effectiveUserId) return;
     
@@ -447,7 +463,7 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
 
         {/* Main tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="search" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
               Search
@@ -568,7 +584,7 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp />
 
-      <ConfettiCelebration
+      <AchievementCelebration
         achievement={currentCelebration}
         onComplete={handleCelebrationComplete}
       />
