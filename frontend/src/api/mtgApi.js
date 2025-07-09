@@ -359,3 +359,30 @@ export const deletePrintingVariant = (printingId) => {
     },
   });
 };
+
+// --- Achievement Functions ---
+
+// Get user achievements with progress
+export const fetchAchievements = (userId) => {
+  return makeAuthenticatedRequest(`${API_BASE_URL}/achievements?user_id=${userId}`);
+};
+
+// Get achievement notifications
+export const fetchAchievementNotifications = (userId) => {
+  return makeAuthenticatedRequest(`${API_BASE_URL}/achievements/notifications?user_id=${userId}`);
+};
+
+// Trigger achievement check
+export const triggerAchievementCheck = (userId) => {
+  return makeAuthenticatedRequest(`${API_BASE_URL}/achievements/check`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId })
+  });
+};
+
+// Mark achievement notification as viewed
+export const markAchievementNotificationViewed = (notificationId) => {
+  return makeAuthenticatedRequest(`${API_BASE_URL}/achievements/notifications/${notificationId}/mark-viewed`, {
+    method: 'PUT'
+  });
+};
