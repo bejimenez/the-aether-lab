@@ -1,9 +1,17 @@
 import { useState } from 'react';
-import { Menu, X, LogOut } from 'lucide-react';
+import { Menu, X, LogOut, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ThemeSwitcher from './ThemeSwitcher';
 
-const MobileMenu = ({ userProfile, user, onSignOut }) => {
+const MobileMenu = ({ 
+  userProfile, 
+  user, 
+  onSignOut, 
+  totalPoints = 0, 
+  unreadNotifications = [], 
+  onCheckAchievements, 
+  achievementsLoading = false 
+}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleMenu = () => setIsOpen(!isOpen);
@@ -39,6 +47,33 @@ const MobileMenu = ({ userProfile, user, onSignOut }) => {
                   Welcome, {userProfile?.username || user?.email || 'Demo User'}
                 </p>
               </div>
+              
+              {/* Achievement Points */}
+              <div className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-yellow-500" />
+                  <span className="text-sm font-medium">{totalPoints} points</span>
+                </div>
+                {unreadNotifications.length > 0 && (
+                  <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                    {unreadNotifications.length}
+                  </span>
+                )}
+              </div>
+              
+              {/* Check Achievements Button */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onCheckAchievements?.();
+                  setIsOpen(false);
+                }}
+                disabled={achievementsLoading}
+                className="w-full justify-start"
+              >
+                <Trophy className="w-4 h-4 mr-2" />
+                {achievementsLoading ? 'Checking...' : 'Check Achievements'}
+              </Button>
               
               {/* Theme Switcher */}
               <div className="flex flex-col space-y-2">

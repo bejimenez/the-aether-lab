@@ -457,33 +457,42 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
               userProfile={userProfile}
               user={user}
               onSignOut={handleSignOut}
+              totalPoints={totalPoints}
+              unreadNotifications={unreadNotifications}
+              onCheckAchievements={handleManualAchievementCheck}
+              achievementsLoading={achievementsLoading}
             />
           </div>
         </div>
 
         {/* Main tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="search" className="flex items-center gap-2">
-              <Search className="w-4 h-4" />
-              Search
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1">
+            <TabsTrigger value="search" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Search className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Search</span>
+              <span className="sm:hidden">Search</span>
             </TabsTrigger>
-            <TabsTrigger value="collection" className="flex items-center gap-2">
-              <Library className="w-4 h-4" />
-              Collection ({collection.length})
+            <TabsTrigger value="collection" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Library className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden md:inline">Collection ({collection.length})</span>
+              <span className="md:hidden">Collection</span>
             </TabsTrigger>
-            <TabsTrigger value="decks" className="flex items-center gap-2">
-              <Layers className="w-4 h-4" />
-              Decks ({decks.length})
+            <TabsTrigger value="decks" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Layers className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden md:inline">Decks ({decks.length})</span>
+              <span className="md:hidden">Decks</span>
             </TabsTrigger>
-            <TabsTrigger value="stats" className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Statistics
+            <TabsTrigger value="stats" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <TrendingUp className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Statistics</span>
+              <span className="sm:hidden">Stats</span>
             </TabsTrigger>
-            <TabsTrigger value="achievements">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4" />
-                Achievements
+            <TabsTrigger value="achievements" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <div className="flex items-center gap-1 md:gap-2">
+                <Trophy className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden md:inline">Achievements</span>
+                <span className="md:hidden">Awards</span>
                 {unreadNotifications.length > 0 && (
                   <span className="bg-red-500 text-white text-xs px-1 py-0.5 rounded-full">
                     {unreadNotifications.length}
