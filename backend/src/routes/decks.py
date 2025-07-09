@@ -39,10 +39,17 @@ def create_deck():
         )
         db.session.add(deck)
         db.session.commit()
+
+        # Trigger achievement check
+        from src.services.achievement_service import AchievementService
+        newly_completed = AchievementService.check_and_update_achievements(
+            user_id, 'deck_update'
+        )
         
         return jsonify({
             'message': 'Deck created successfully',
-            'deck': deck.to_dict()
+            'deck': deck.to_dict(),
+            'newly_completed_achievements': len(newly_completed)
         }), 201
         
     except Exception as e:

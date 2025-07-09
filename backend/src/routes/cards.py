@@ -180,9 +180,16 @@ def add_to_collection():
             )
             db.session.add(collection_card)
             db.session.commit()
+
+            # Trigger achievement check
+            from src.services.achievement_service import AchievementService
+            newly_completed = AchievementService.check_and_update_achievements(
+                user_id, 'collection_update'
+            )
             return jsonify({
                 'message': 'Card added to collection',
-                'collection_card': collection_card.to_dict()
+                'collection_card': collection_card.to_dict(),
+                'newly_completed_achievements': len(newly_completed)
             })
             
     except Exception as e:
