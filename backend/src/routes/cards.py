@@ -833,80 +833,10 @@ def analyze_keywords(user_id):
         for keyword, count in top_keywords
     ]
 
-# @cards_bp.route('/collection/printings', methods=['POST'])
-# def add_printing_variant():
-#     """Add a specific printing variant to collection"""
-#     data = request.get_json()
-    
-#     if not data or 'scryfall_id' not in data:
-#         return jsonify({'error': 'scryfall_id is required'}), 400
-    
-#     scryfall_id = data['scryfall_id']
-#     user_id = data.get('user_id', 1)  # For now, use default user_id
-#     quantity = data.get('quantity', 1)
-#     is_foil = data.get('is_foil', False)
-#     condition = data.get('condition', 'near_mint')
-    
-#     # Get set information from the card data or from data payload
-#     printing_details = {
-#         'set_code': data.get('set_code'),
-#         'set_name': data.get('set_name'),
-#         'collector_number': data.get('collector_number'),
-#         'is_alternate_art': data.get('is_alternate_art', False),
-#         'is_promo': data.get('is_promo', False)
-#     }
-    
-#     try:
-#         # Check if card exists in cache
-#         card = Card.query.filter_by(scryfall_id=scryfall_id).first()
-#         if not card:
-#             return jsonify({'error': 'Card not found in cache'}), 404
-        
-#         # FIXED: Use PostgreSQL JSONB syntax instead of json_extract
-#         # Check if this exact printing already exists
-#         existing_entry = CollectionCard.query.filter_by(
-#             user_id=user_id,
-#             scryfall_id=scryfall_id,
-#             is_foil=is_foil,
-#             condition=condition
-#         ).filter(
-#             # Use PostgreSQL JSONB operator instead of json_extract
-#             CollectionCard.printing_details['set_code'].astext == printing_details.get('set_code')
-#         ).first()
-        
-#         if existing_entry:
-#             # Update quantity
-#             existing_entry.quantity += quantity
-#             db.session.commit()
-#             return jsonify({
-#                 'message': 'Printing variant quantity updated',
-#                 'collection_card': existing_entry.to_dict()
-#             })
-#         else:
-#             # Add new printing variant
-#             collection_card = CollectionCard(
-#                 user_id=user_id,
-#                 scryfall_id=scryfall_id,
-#                 quantity=quantity,
-#                 is_foil=is_foil,
-#                 condition=condition,
-#                 printing_details=printing_details
-#             )
-#             db.session.add(collection_card)
-#             db.session.commit()
-#             return jsonify({
-#                 'message': 'Printing variant added to collection',
-#                 'collection_card': collection_card.to_dict()
-#             })
-            
-#     except Exception as e:
-#         db.session.rollback()
-#         return jsonify({'error': f'Failed to add printing variant: {str(e)}'}), 500
-
 # safer python version of the above route that avoids JSONB operators
 @cards_bp.route('/collection/printings', methods=['POST'])
-def add_printing_variant_safe():
-    """Add a specific printing variant to collection (safer version without JSONB operators)"""
+def add_printing_variant():
+    """Add a specific printing variant to collection - PostgreSQL compatible version"""
     data = request.get_json()
     
     if not data or 'scryfall_id' not in data:
@@ -918,6 +848,7 @@ def add_printing_variant_safe():
     is_foil = data.get('is_foil', False)
     condition = data.get('condition', 'near_mint')
     
+    # Get set information from the card data or from data payload
     printing_details = {
         'set_code': data.get('set_code'),
         'set_name': data.get('set_name'),
@@ -932,7 +863,8 @@ def add_printing_variant_safe():
         if not card:
             return jsonify({'error': 'Card not found in cache'}), 404
         
-        # SAFER APPROACH: Get all potential matches and filter in Python
+        # POSTGRESQL-SAFE APPROACH: Get all potential matches and filter in Python
+        # This avoids ALL PostgreSQL JSONB syntax issues
         potential_matches = CollectionCard.query.filter_by(
             user_id=user_id,
             scryfall_id=scryfall_id,
@@ -940,39 +872,65 @@ def add_printing_variant_safe():
             condition=condition
         ).all()
         
-        # Find exact match using Python logic
+        # Find exact match using Python logic (no SQL JSONB operations)
         existing_entry = None
         target_set_code = printing_details.get('set_code')
+        target_collector_number = printing_details.get('collector_number')
+        target_is_promo = printing_details.get('is_promo', False)
+        target_is_alternate_art = printing_details.get('is_alternate_art', False)
+        
+        print(f"DEBUG: Looking for match with set_code={target_set_code}, collector_number={target_collector_number}")
         
         for entry in potential_matches:
             entry_details = entry.printing_details or {}
             entry_set_code = entry_details.get('set_code')
+            entry_collector_number = entry_details.get('collector_number')
+            entry_is_promo = entry_details.get('is_promo', False)
+            entry_is_alternate_art = entry_details.get('is_alternate_art', False)
             
-            # Match if both have same set_code OR both are None/empty
-            if target_set_code == entry_set_code:
+            print(f"DEBUG: Checking entry with set_code={entry_set_code}, collector_number={entry_collector_number}")
+            
+            # Match if all key printing details are the same
+            if (target_set_code == entry_set_code and 
+                target_collector_number == entry_collector_number and
+                target_is_promo == entry_is_promo and
+                target_is_alternate_art == entry_is_alternate_art):
                 existing_entry = entry
+                print(f"DEBUG: Found matching entry with id={entry.id}")
                 break
         
         if existing_entry:
-            # Update quantity
+            # Update quantity of existing entry
             existing_entry.quantity += quantity
             db.session.commit()
+            print(f"DEBUG: Updated existing entry, new quantity={existing_entry.quantity}")
             return jsonify({
                 'message': 'Printing variant quantity updated',
                 'collection_card': existing_entry.to_dict()
             })
         else:
             # Add new printing variant
+            # Clean printing_details - only include non-empty/non-false values
+            clean_printing_details = {}
+            for key, value in printing_details.items():
+                if value:  # Only include truthy values
+                    clean_printing_details[key] = value
+            
+            print(f"DEBUG: Creating new entry with details={clean_printing_details}")
+            
             collection_card = CollectionCard(
                 user_id=user_id,
                 scryfall_id=scryfall_id,
                 quantity=quantity,
                 is_foil=is_foil,
                 condition=condition,
-                printing_details=printing_details if any(printing_details.values()) else None
+                printing_details=clean_printing_details if clean_printing_details else None
             )
             db.session.add(collection_card)
             db.session.commit()
+            
+            print(f"DEBUG: Created new entry with id={collection_card.id}")
+            
             return jsonify({
                 'message': 'Printing variant added to collection',
                 'collection_card': collection_card.to_dict()
@@ -980,6 +938,9 @@ def add_printing_variant_safe():
             
     except Exception as e:
         db.session.rollback()
+        print(f"ERROR in add_printing_variant: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Failed to add printing variant: {str(e)}'}), 500
 
 @cards_bp.route('/collection/printings/<printing_id>', methods=['PUT'])
@@ -1049,3 +1010,42 @@ def get_card_printings(scryfall_id):
         
     except Exception as e:
         return jsonify({'error': f'Failed to get card printings: {str(e)}'}), 500
+
+# Debug endpoint
+@cards_bp.route('/collection/printings/debug', methods=['POST'])
+def debug_add_printing():
+    """Debug version to test basic functionality"""
+    data = request.get_json()
+    
+    try:
+        print(f"DEBUG: Received data: {data}")
+        
+        # Minimal test - just try to create the record
+        collection_card = CollectionCard(
+            user_id=data.get('user_id', 1),
+            scryfall_id=data['scryfall_id'],
+            quantity=data.get('quantity', 1),
+            is_foil=data.get('is_foil', False),
+            condition=data.get('condition', 'near_mint'),
+            printing_details={
+                'set_code': data.get('set_code', 'DEBUG'),
+                'debug': True
+            }
+        )
+        
+        db.session.add(collection_card)
+        db.session.commit()
+        
+        print(f"DEBUG: Successfully created entry with id={collection_card.id}")
+        
+        return jsonify({
+            'message': 'Debug test successful',
+            'collection_card': collection_card.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"DEBUG ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Debug test failed: {str(e)}'}), 500
