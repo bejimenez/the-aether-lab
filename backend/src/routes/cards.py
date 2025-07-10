@@ -862,6 +862,7 @@ def add_printing_variant():
         if not card:
             return jsonify({'error': 'Card not found in cache'}), 404
         
+        # FIXED: Use PostgreSQL JSONB syntax instead of json_extract
         # Check if this exact printing already exists
         existing_entry = CollectionCard.query.filter_by(
             user_id=user_id,
@@ -869,7 +870,8 @@ def add_printing_variant():
             is_foil=is_foil,
             condition=condition
         ).filter(
-            db.func.json_extract(CollectionCard.printing_details, '$.set_code') == printing_details.get('set_code')
+            # Use PostgreSQL JSONB operator instead of json_extract
+            CollectionCard.printing_details['set_code'].astext == printing_details.get('set_code')
         ).first()
         
         if existing_entry:
