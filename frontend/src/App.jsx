@@ -265,23 +265,45 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
   if (!effectiveUserId) return;
  
   try {
-    await api.addToCollection(effectiveUserId, card.scryfall_id, quantity);
+    // Call the API to add the card
+    const result = await api.addToCollection(effectiveUserId, card.scryfall_id, quantity);
     
-    // IMPROVED: Reload user data and force SearchTab update
-    await loadUserData();
-    setCollectionUpdateTrigger(prev => prev + 1);
-   
-    // Check for new achievements after adding card
-    const achievementResult = await checkAchievementsAfterCardAdd();
-   
-    // Show success toast
+    // CRITICAL FIX: Immediately update the collection state
+    if (result && result.collection_card) {
+      setCollection(prevCollection => {
+        // Check if card already exists in collection
+        const existingCardIndex = prevCollection.findIndex(c => c.scryfall_id === card.scryfall_id);
+        
+        if (existingCardIndex !== -1) {
+          // Update existing card with the new data from server
+          const newCollection = [...prevCollection];
+          newCollection[existingCardIndex] = result.collection_card;
+          return newCollection;
+        } else {
+          // Add new card to collection using the server response
+          return [...prevCollection, result.collection_card];
+        }
+      });
+      
+      // Force immediate re-render of SearchTab
+      setCollectionUpdateTrigger(prev => prev + 1);
+    }
+    
+    // Show success toast immediately
     addToast('Card Added!', 'Your card has been added to your collection.', 'success');
+   
+    // Check for achievements
+    const achievementResult = await checkAchievementsAfterCardAdd();
    
     if (achievementResult?.newly_completed?.length > 0) {
       achievementResult.newly_completed.forEach(achievement => {
         handleAchievementUnlocked(achievement);
       });
     }
+    
+    // Load full data in background (don't await)
+    loadUserData();
+    
   } catch (error) {
     console.error("Failed to add card:", error);
     addToast('Error', 'Failed to add card to collection.', 'error');
@@ -307,21 +329,28 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
   if (!effectiveUserId) return;
   
   try {
-    await api.updateCardQuantity(effectiveUserId, scryfallId, newQuantity);
+    // Call the API
+    const result = await api.updateCardQuantity(effectiveUserId, scryfallId, newQuantity);
     
-    // IMPROVED: Immediate local state update + trigger update
-    setCollection(prevCollection => 
-      prevCollection.map(card => 
-        card.scryfall_id === scryfallId 
-          ? { ...card, quantity: newQuantity }
-          : card
-      ).filter(card => card.quantity > 0) // Remove cards with 0 quantity
-    );
+    // Immediate local state update
+    setCollection(prevCollection => {
+      if (newQuantity <= 0) {
+        // Remove card from collection
+        return prevCollection.filter(card => card.scryfall_id !== scryfallId);
+      } else {
+        // Update quantity
+        return prevCollection.map(card => 
+          card.scryfall_id === scryfallId 
+            ? { ...card, quantity: newQuantity }
+            : card
+        );
+      }
+    });
     
-    // Force SearchTab to refresh its local collection
+    // Force SearchTab to refresh immediately
     setCollectionUpdateTrigger(prev => prev + 1);
     
-    // Reload full data in background
+    // Load full data in background (don't await)
     loadUserData();
     
   } catch (error) {
