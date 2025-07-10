@@ -1,4 +1,6 @@
-// src/hooks/useKeyboardShortcuts.js
+// File: frontend/src/hooks/useKeyboardShortcuts.js
+// REPLACE the entire file with this improved version
+
 import { useEffect, useCallback } from 'react';
 
 export const useKeyboardShortcuts = (shortcuts = {}) => {
@@ -17,6 +19,10 @@ export const useKeyboardShortcuts = (shortcuts = {}) => {
       return;
     }
 
+    // IMPROVED: Check if the event target has a tabindex (card is focused)
+    const isCardFocused = activeElement && activeElement.hasAttribute('tabindex') && 
+                         activeElement.getAttribute('tabindex') === '0';
+
     // Create a key combination string
     const modifiers = [];
     if (event.ctrlKey || event.metaKey) modifiers.push('ctrl');
@@ -29,21 +35,32 @@ export const useKeyboardShortcuts = (shortcuts = {}) => {
     // Check if we have a handler for this combination
     const handler = shortcuts[combination];
     if (handler) {
-      event.preventDefault();
-      event.stopPropagation();
-      handler(event);
+      // IMPROVED: Pass more context to the handler
+      const context = {
+        isCardFocused,
+        isInputFocused,
+        activeElement,
+        originalEvent: event
+      };
+      
+      // Only prevent default if handler returns true or undefined
+      const shouldPreventDefault = handler(event, context);
+      if (shouldPreventDefault !== false) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     }
   }, [shortcuts]);
 
   useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, { capture: true });
     };
   }, [handleKeyDown]);
 };
 
-// Pre-defined shortcut combinations for common actions
+// Enhanced shortcut definitions
 export const SHORTCUTS = {
   // Navigation
   SEARCH_FOCUS: '/',
@@ -54,9 +71,11 @@ export const SHORTCUTS = {
   TAB_COLLECTION: '2', 
   TAB_DECKS: '3',
   TAB_STATS: '4',
+  TAB_ACHIEVEMENTS: '5',
   
-  // Collection actions
+  // Collection actions (when card focused)
   ADD_TO_COLLECTION: 'a',
+  QUICK_ADD: 'space', // Changed from 'enter' to avoid conflicts
   REMOVE_FROM_COLLECTION: 'd',
   INCREMENT_QUANTITY: '+',
   DECREMENT_QUANTITY: '-',
@@ -70,4 +89,13 @@ export const SHORTCUTS = {
   QUICK_SAVE: 'ctrl+s',
   REFRESH: 'r',
   CLEAR_SEARCH: 'ctrl+k',
+  GLOBAL_ENTER: 'enter', // For global enter actions
+};
+
+// Helper function to check if any card is currently focused
+export const isAnyCardFocused = () => {
+  const activeElement = document.activeElement;
+  return activeElement && 
+         activeElement.hasAttribute('tabindex') && 
+         activeElement.getAttribute('tabindex') === '0';
 };

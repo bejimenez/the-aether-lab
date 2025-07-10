@@ -151,34 +151,42 @@ function AppContent() {
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({
-    '/': () => {
-      // Focus search input
-      if (searchInputRef.current) {
-        searchInputRef.current.focus();
-        setActiveTab('search');
-      }
-    },
-    'escape': () => {
-      // Clear search and unfocus
-      if (searchInputRef.current) {
-        searchInputRef.current.blur();
-      }
-      // Clear search if we're on search tab
-      if (activeTab === 'search') {
-        clearSearch();
-      }
-    },
-    '1': () => setActiveTab('search'),
-    '2': () => setActiveTab('collection'),
-    '3': () => setActiveTab('decks'),
-    '4': () => setActiveTab('stats'),
-    'ctrl+k': () => {
-      // Clear search
-      if (activeTab === 'search') {
-        clearSearch();
-      }
-    },
-  });
+  '/': () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+      setActiveTab('search');
+    }
+  },
+  'escape': () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.blur();
+    }
+    if (activeTab === 'search') {
+      clearSearch();
+    }
+  },
+  // ADDED: Global enter handler for search tab when no card is focused
+  'enter': () => {
+    if (activeTab === 'search' && 
+        searchResults.length > 0 && 
+        document.activeElement.tagName !== 'INPUT' &&
+        !document.activeElement.hasAttribute('tabindex')) { // No card focused
+      
+      const firstCard = searchResults[0];
+      handleAddToCollection(firstCard);
+    }
+  },
+  '1': () => setActiveTab('search'),
+  '2': () => setActiveTab('collection'),
+  '3': () => setActiveTab('decks'),
+  '4': () => setActiveTab('stats'),
+  '5': () => setActiveTab('achievements'),
+  'ctrl+k': () => {
+    if (activeTab === 'search') {
+      clearSearch();
+    }
+  }
+});
 
   // Updated loadUserData to use effectiveUserId instead of userProfile.id
   const loadUserData = useCallback(async () => {
@@ -257,11 +265,10 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
   if (!effectiveUserId) return;
  
   try {
-    // FIX: Use card.scryfall_id instead of card.id
     await api.addToCollection(effectiveUserId, card.scryfall_id, quantity);
+    
+    // IMPROVED: Reload user data and force SearchTab update
     await loadUserData();
-   
-    // Force SearchTab to update by incrementing trigger
     setCollectionUpdateTrigger(prev => prev + 1);
    
     // Check for new achievements after adding card
@@ -270,17 +277,16 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
     // Show success toast
     addToast('Card Added!', 'Your card has been added to your collection.', 'success');
    
-    // Show achievement notifications if any were earned
     if (achievementResult?.newly_completed?.length > 0) {
       achievementResult.newly_completed.forEach(achievement => {
-        handleAchievementUnlocked(achievement); // ✅ Now this is defined!
+        handleAchievementUnlocked(achievement);
       });
     }
   } catch (error) {
-    console.error("Failed to add to collection:", error);
+    console.error("Failed to add card:", error);
     addToast('Error', 'Failed to add card to collection.', 'error');
   }
-}, [effectiveUserId, loadUserData, addToast, checkAchievementsAfterCardAdd, handleAchievementUnlocked]);
+}, [effectiveUserId, loadUserData, checkAchievementsAfterCardAdd, addToast, handleAchievementUnlocked]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
   if (!effectiveUserId) return;
@@ -297,24 +303,32 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
   }
 }, [effectiveUserId, loadUserData]);
 
-  const handleUpdateQuantity = useCallback(async (cardId, newQuantity) => {
+  const handleUpdateQuantity = useCallback(async (scryfallId, newQuantity) => {
   if (!effectiveUserId) return;
   
   try {
-    if (newQuantity <= 0) {
-      await api.removeFromCollection(effectiveUserId, cardId);
-    } else {
-      await api.updateCardQuantity(effectiveUserId, cardId, newQuantity);
-    }
-    await loadUserData();
+    await api.updateCardQuantity(effectiveUserId, scryfallId, newQuantity);
     
-    // Force SearchTab to update by incrementing trigger
+    // IMPROVED: Immediate local state update + trigger update
+    setCollection(prevCollection => 
+      prevCollection.map(card => 
+        card.scryfall_id === scryfallId 
+          ? { ...card, quantity: newQuantity }
+          : card
+      ).filter(card => card.quantity > 0) // Remove cards with 0 quantity
+    );
+    
+    // Force SearchTab to refresh its local collection
     setCollectionUpdateTrigger(prev => prev + 1);
+    
+    // Reload full data in background
+    loadUserData();
     
   } catch (error) {
     console.error("Failed to update quantity:", error);
+    addToast('Error', 'Failed to update card quantity.', 'error');
   }
-}, [effectiveUserId, loadUserData]);
+}, [effectiveUserId, loadUserData, addToast]);
 
   const handleDeleteDeck = useCallback(async (deckId) => {
     if (!effectiveUserId) return;

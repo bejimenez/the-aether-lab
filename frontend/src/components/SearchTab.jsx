@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+// File: frontend/src/components/SearchTab.jsx
+// REPLACE the entire SearchTab component with this improved version
+
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import CardDisplay from './CardDisplay';
@@ -12,17 +15,24 @@ const SearchTab = ({
   onShowDetails, 
   collection = [], 
   searchInputRef,
-  // Add a refresh trigger to force updates
   collectionUpdateTrigger 
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [localCollection, setLocalCollection] = useState(collection);
   const debounceTimerRef = useRef(null);
 
-  // Update local collection when props change or when update trigger changes
-  useEffect(() => {
-    setLocalCollection(collection);
-  }, [collection, collectionUpdateTrigger]);
+  // IMPROVED: Create a memoized collection lookup map for better performance
+  const collectionMap = useMemo(() => {
+    const map = new Map();
+    collection.forEach(card => {
+      map.set(card.scryfall_id, card);
+    });
+    return map;
+  }, [collection, collectionUpdateTrigger]); // Include trigger to force rebuild
+
+  // IMPROVED: Memoized function to find collection card
+  const getCollectionCard = useCallback((searchCard) => {
+    return collectionMap.get(searchCard.scryfall_id) || null;
+  }, [collectionMap]);
 
   // Expose clear function via ref for parent component
   useEffect(() => {
@@ -60,7 +70,7 @@ const SearchTab = ({
   }, [searchQuery, onSearch]);
 
   // Manual search handler (for button click)
-  const handleManualSearch = () => {
+  const handleManualSearch = useCallback(() => {
     // Cancel any pending debounced search
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -68,21 +78,21 @@ const SearchTab = ({
     
     // Immediately trigger search
     onSearch(searchQuery);
-  };
+  }, [searchQuery, onSearch]);
 
   // Clear search handler
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setSearchQuery('');
     // This will trigger the useEffect which will clear results for empty query
-  };
+  }, []);
 
   // Handle input changes
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     setSearchQuery(e.target.value);
-  };
+  }, []);
 
   // Handle Enter key press for immediate search
-  const handleKeyPress = (e) => {
+  const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter') {
       // Cancel debounced search and search immediately
       if (debounceTimerRef.current) {
@@ -90,7 +100,7 @@ const SearchTab = ({
       }
       handleManualSearch();
     }
-  };
+  }, [handleManualSearch]);
 
   return (
     <div className="space-y-4">
@@ -140,8 +150,8 @@ const SearchTab = ({
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {searchResults.map(card => {
-              // Find collection card data for this search result
-              const collectionCard = localCollection.find(cc => cc.scryfall_id === card.scryfall_id);
+              // IMPROVED: Use the memoized lookup function
+              const collectionCard = getCollectionCard(card);
               
               return (
                 <CardDisplay
@@ -171,6 +181,11 @@ const SearchTab = ({
         <div className="text-center py-8 text-muted-foreground">
           <p>Start typing to search for Magic cards</p>
           <p className="text-sm mt-1">Search automatically triggers after a brief pause</p>
+          <div className="mt-4 text-xs space-y-1">
+            <p><kbd className="px-1 py-0.5 bg-muted rounded">Enter</kbd> when no card focused: Add first result</p>
+            <p><kbd className="px-1 py-0.5 bg-muted rounded">A</kbd> or <kbd className="px-1 py-0.5 bg-muted rounded">Space</kbd> when card focused: Add/increment card</p>
+            <p><kbd className="px-1 py-0.5 bg-muted rounded">Tab</kbd> to navigate between cards</p>
+          </div>
         </div>
       )}
     </div>

@@ -42,12 +42,12 @@ const CardDisplay = ({
         onUpdateQuantity(card.scryfall_id, quantity - 1);
       }
     },
-    '+': () => {
+    'i': () => {
       if ((isFocused || isHovered) && quantity > 0 && onUpdateQuantity) {
         onUpdateQuantity(card.scryfall_id, quantity + 1);
       }
     },
-    '-': () => {
+    'r': () => {
       if ((isFocused || isHovered) && quantity > 1 && onUpdateQuantity) {
         onUpdateQuantity(card.scryfall_id, quantity - 1);
       }
@@ -57,9 +57,12 @@ const CardDisplay = ({
         onBuildAround(card);
       }
     },
-    'enter': () => {
+    'space': (event) => {
       if (isFocused) {
-        // Quick add/increment
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Quick add/increment with spacebar instead of enter
         if (quantity === 0 && onAdd) {
           onAdd(card);
         } else if (onUpdateQuantity) {
@@ -83,6 +86,22 @@ const CardDisplay = ({
     setImageError(true);
   };
 
+  const handleFocus = () => {
+    setIsFocused(true);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
   return (
     <Card 
       ref={cardRef}
@@ -90,26 +109,28 @@ const CardDisplay = ({
         isFocused ? 'ring-2 ring-blue-500 ring-offset-2' : ''
       } ${isHovered ? 'shadow-lg transform scale-105' : ''}`}
       tabIndex={0}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onFocus={() => setIsFocused(true)}
-      onBlur={() => setIsFocused(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
     >
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">{card.name}</CardTitle>
           <div className="flex gap-2">
             <Badge variant="secondary">{card.rarity}</Badge>
-            {/* Collection quantity badge - only show in search context */}
+            {/* IMPROVED: More reliable collection badge */}
             {showCollectionBadge && (
-              <Badge variant="destructive" className="bg-green-600 hover:bg-green-700 text-white">
-                {collectionCard ? `${collectionCard.quantity} in Collection` : '0 in Collection'}
+              <Badge 
+                variant="destructive" 
+                className={`${quantity > 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'} text-white`}
+              >
+                {quantity} in Collection
               </Badge>
             )}
           </div>
         </div>
         <CardDescription className="text-sm">
-          {/* Replace text mana cost with visual symbols */}
           {card.mana_cost && (
             <div className="flex items-center gap-2 mb-1">
               <ManaCost manaCost={card.mana_cost} size="sm" />
@@ -123,7 +144,6 @@ const CardDisplay = ({
       </CardHeader>
       <CardContent className="flex flex-col flex-grow justify-between">
         <div>
-          {/* Image with fallback */}
           <div className="relative mb-3">
             <img
               src={getImageUrl()}
@@ -132,7 +152,6 @@ const CardDisplay = ({
               loading="lazy"
               onError={handleImageError}
             />
-            {/* Show a small indicator if using fallback image */}
             {(imageError || !card.image_uri) && (
               <div className="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 py-0.5 rounded">
                 No Art
@@ -140,7 +159,6 @@ const CardDisplay = ({
             )}
           </div>
           
-          {/* Oracle text - keep this as it provides important game information */}
           {card.oracle_text && (
             <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded mb-3 line-clamp-3">
               {card.oracle_text}
@@ -148,49 +166,47 @@ const CardDisplay = ({
           )}
         </div>
         <div className="flex flex-col gap-2 mt-auto">
-          {/* Keyboard shortcuts hint - shown when focused */}
-          {/* {isFocused && (
+          {/* IMPROVED: Show keyboard hints when focused */}
+          {isFocused && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 text-xs">
-              <div className="text-blue-800 dark:text-blue-200 font-medium mb-1">Keyboard Shortcuts:</div>
+              <div className="text-blue-800 dark:text-blue-200 font-medium mb-1">Shortcuts:</div>
               <div className="text-blue-700 dark:text-blue-300 space-y-0.5">
-                <div>A: Add to collection</div>
-                {quantity > 0 && <div>D: Remove from collection</div>}
-                {quantity > 0 && <div>+/-: Adjust quantity</div>}
+                <div>A: Add • Space: Quick add/increment</div>
+                {quantity > 0 && <div>D: Remove • +/-: Adjust quantity</div>}
                 <div>B: Build deck around</div>
-                <div>Enter: Quick add/increment</div>
               </div>
             </div>
-          )} */}
+          )}
           
-          {onAdd && (
+          {onAdd && quantity === 0 && (
             <Button onClick={() => onAdd(card)} className="w-full">
               Add to Collection
             </Button>
           )}
-          {collectionCard && onUpdateQuantity && (
+          
+          {quantity > 0 && onUpdateQuantity && (
             <div className="flex items-center justify-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onUpdateQuantity(card.scryfall_id, collectionCard.quantity - 1)}
-                disabled={collectionCard.quantity <= 0}
+                onClick={() => onUpdateQuantity(card.scryfall_id, quantity - 1)}
+                disabled={quantity <= 0}
               >
                 <Minus className="w-4 h-4" />
               </Button>
               <span className="px-3 py-1 bg-muted rounded text-sm font-medium">
-                {collectionCard.quantity}
+                {quantity}
               </span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onUpdateQuantity(card.scryfall_id, collectionCard.quantity + 1)}
+                onClick={() => onUpdateQuantity(card.scryfall_id, quantity + 1)}
               >
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
           )}
 
-          {/* Details Button - Always visible */}
           {onShowDetails && (
             <Button 
               variant="outline" 
