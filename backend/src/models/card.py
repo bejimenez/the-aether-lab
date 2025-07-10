@@ -49,7 +49,7 @@ class Card(db.Model):
         }
 
 class CollectionCard(db.Model):
-    """User's card collection"""
+    """User's card collection with printing variant support"""
     __tablename__ = 'collection_cards'
     
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -65,10 +65,13 @@ class CollectionCard(db.Model):
     # Relationships
     card = db.relationship('Card', backref='collection_entries')
     
-    # Updated unique constraint to allow multiple printings of the same card
-    # We'll use a combination of user_id, scryfall_id, is_foil, condition, and printing details hash
+    # Updated unique constraint for PostgreSQL
     __table_args__ = (
-        db.Index('idx_user_card_printing', 'user_id', 'scryfall_id', 'is_foil', 'condition'),
+        db.UniqueConstraint(
+            'user_id', 'scryfall_id', 'is_foil', 'condition', 'printing_details',
+            name='collection_cards_unique_printing'
+        ),
+        db.Index('idx_collection_cards_printing', 'user_id', 'scryfall_id', 'is_foil', 'condition'),
     )
     
     def __repr__(self):

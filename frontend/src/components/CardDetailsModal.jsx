@@ -149,34 +149,41 @@ const CardDetailsModal = ({
   };
 
   const handleAddPrinting = async () => {
-    if (!card) return;
-    
-    const newPrinting = {
-      scryfall_id: card.scryfall_id,
-      user_id: 1, // TODO: use actual user ID
-      quantity: 1,
-      is_foil: false,
-      condition: 'near_mint',
-      set_code: card.set_code,
-      set_name: card.set_name,
-      collector_number: '',
-      is_alternate_art: false,
-      is_promo: false
-    };
-
-    try {
-      const response = await api.addPrintingVariant(newPrinting);
-      const data = await response.json();
-      
-      if (response.ok) {
-        await fetchPrintingVariants(); // Refresh the list
-      } else {
-        console.error('Failed to add printing variant:', data.error);
-      }
-    } catch (error) {
-      console.error('Error adding printing variant:', error);
-    }
+  if (!card) return;
+  
+  // Create a modal or form to collect printing details
+  const newPrinting = {
+    scryfall_id: card.scryfall_id,
+    user_id: 1, // TODO: use actual user ID
+    quantity: 1,
+    is_foil: false,
+    condition: 'near_mint',
+    set_code: card.set_code || '',
+    set_name: card.set_name || '',
+    collector_number: '',
+    is_alternate_art: false,
+    is_promo: false
   };
+
+  // You might want to show a modal here to let users customize the printing details
+  // For now, we'll just add a default printing
+  
+  try {
+    const response = await api.addPrintingVariant(newPrinting);
+    const data = await response.json();
+    
+    if (response.ok) {
+      await fetchPrintingVariants(); // Refresh the list
+      toast.success('Printing added successfully');
+    } else {
+      console.error('Failed to add printing variant:', data.error);
+      toast.error(data.error || 'Failed to add printing');
+    }
+  } catch (error) {
+    console.error('Error adding printing variant:', error);
+    toast.error('Network error while adding printing');
+  }
+};
 
   const handleUpdatePrinting = async (updatedEntry) => {
     try {
