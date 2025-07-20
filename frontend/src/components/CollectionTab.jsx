@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,6 @@ import CMCRangeSlider from './CMCRangeSlider';
 import * as api from '../api/mtgApi';
 
 const CollectionTab = ({
-  collection = [], // This will be used only for initial load/stats
   onUpdateQuantity,
   onBuildAroundCard,
   userId

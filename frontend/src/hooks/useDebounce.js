@@ -41,7 +41,7 @@ export function useDebounceWithCancel(value, delay) {
     setTimeoutId(newTimeoutId);
 
     return cancel;
-  }, [value, delay]);
+  }, [value, delay, cancel]);
 
   return [debouncedValue, cancel];
 }

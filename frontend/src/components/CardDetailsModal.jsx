@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -11,25 +11,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Hammer, 
   ChevronDown, 
-  ChevronRight, 
+  ChevronRight,
   DollarSign,
   BookOpen,
   Loader2,
-  Plus,
-  Minus
+  Plus
 } from 'lucide-react';
 import PrintingEntry from './PrintingEntry';
 import * as api from '../api/mtgApi';
 import ManaCost from './ManaCost';
+import { useToast } from './ui/toast';
 
 const CardDetailsModal = ({ 
   card, 
-  collectionCard, 
   isOpen, 
   onClose, 
-  onBuildAround,
-  onUpdateQuantity 
+  onBuildAround
 }) => {
+  const { addToast } = useToast();
   const [pricingExpanded, setPricingExpanded] = useState(false);
   const [rulingsExpanded, setRulingsExpanded] = useState(false);
   const [oracleExpanded, setOracleExpanded] = useState(true);
@@ -174,14 +173,14 @@ const CardDetailsModal = ({
     
     if (response.ok) {
       await fetchPrintingVariants(); // Refresh the list
-      toast.success('Printing added successfully');
+      addToast('Printing added successfully', 'success');
     } else {
       console.error('Failed to add printing variant:', data.error);
-      toast.error(data.error || 'Failed to add printing');
+      addToast(data.error || 'Failed to add printing', 'error');
     }
   } catch (error) {
     console.error('Error adding printing variant:', error);
-    toast.error('Network error while adding printing');
+    addToast('Network error while adding printing', 'error');
   }
 };
 

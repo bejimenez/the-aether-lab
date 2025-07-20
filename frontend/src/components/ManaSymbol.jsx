@@ -1,5 +1,4 @@
-// frontend/src/components/ManaSymbol.jsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { getSymbolUrl, hasSymbolImage } from '../lib/manaUtils';
 
 const ManaSymbol = ({ symbol, size = 'sm', className = '', showFallback = true }) => {

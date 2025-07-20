@@ -19,6 +19,7 @@ const SearchTab = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const debounceTimerRef = useRef(null);
+  const focusedCardRef = useRef(null); // Ref to store the ID of the focused card
 
   // IMPROVED: Create a memoized collection lookup map for better performance
   const collectionMap = useMemo(() => {
@@ -102,6 +103,31 @@ const SearchTab = ({
     }
   }, [handleManualSearch]);
 
+  // Focus restoration effect
+  useEffect(() => {
+    if (focusedCardRef.current) {
+      const element = document.getElementById(focusedCardRef.current);
+      if (element) {
+        element.focus();
+        // Optional: Scroll into view if not already
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      focusedCardRef.current = null; // Clear the ref after focusing
+    }
+  }, [collectionUpdateTrigger]); // Re-run when collection is updated
+
+  const handleCardFocus = useCallback((scryfallId) => {
+    focusedCardRef.current = scryfallId;
+  }, []);
+
+  const handleCardBlur = useCallback(() => {
+    // Clear focusedCardRef if the blur is not due to another card gaining focus
+    // This is a simplified approach; a more robust solution might involve checking relatedTarget
+    if (document.activeElement.tagName !== 'BUTTON' && document.activeElement.tagName !== 'INPUT') {
+      focusedCardRef.current = null;
+    }
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* Search Input */}
@@ -146,7 +172,7 @@ const SearchTab = ({
         <div>
           <p className="text-muted-foreground mb-4">
             Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
-            {searchQuery && ` for "${searchQuery}"`}
+            {searchQuery && ` for &quot;${searchQuery}&quot;`}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {searchResults.map(card => {
@@ -156,11 +182,14 @@ const SearchTab = ({
               return (
                 <CardDisplay
                   key={card.scryfall_id || card.id}
+                  id={card.scryfall_id || card.id} // Add ID for focus restoration
                   card={card}
                   collectionCard={collectionCard}
                   onAdd={onAddCard}
                   onShowDetails={onShowDetails}
                   showCollectionBadge={true}
+                  onFocus={() => handleCardFocus(card.scryfall_id || card.id)}
+                  onBlur={handleCardBlur}
                 />
               );
             })}
@@ -171,7 +200,7 @@ const SearchTab = ({
       {/* No results message */}
       {!loading && searchQuery.length >= 2 && searchResults.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
-          <p>No cards found for "{searchQuery}"</p>
+          <p>No cards found for &quot;{searchQuery}&quot;</p>
           <p className="text-sm mt-1">Try adjusting your search terms or checking the spelling</p>
         </div>
       )}

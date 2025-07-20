@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, Star, Sparkles, Crown, Zap } from 'lucide-react';
 
-const ConfettiPiece = ({ color, delay, duration }) => {
+const ConfettiPiece = React.memo(({ color, delay, duration }) => {
   const randomX = Math.random() * 100;
+  const randomY = Math.random() * 100;
   const randomRotation = Math.random() * 360;
   
   return (
@@ -10,6 +11,7 @@ const ConfettiPiece = ({ color, delay, duration }) => {
       className="absolute w-2 h-2 opacity-90"
       style={{
         left: `${randomX}%`,
+        top: `${randomY}%`,
         backgroundColor: color,
         animationDelay: `${delay}ms`,
         animationDuration: `${duration}ms`,
@@ -18,9 +20,11 @@ const ConfettiPiece = ({ color, delay, duration }) => {
       }}
     />
   );
-};
+});
 
-const Sparkle = ({ delay, left, top, size = 'sm' }) => {
+ConfettiPiece.displayName = 'ConfettiPiece';
+
+const Sparkle = React.memo(({ delay, left, top, size = 'sm' }) => {
   const sizeClasses = {
     sm: 'w-2 h-2',
     md: 'w-3 h-3',
@@ -38,7 +42,9 @@ const Sparkle = ({ delay, left, top, size = 'sm' }) => {
       }}
     />
   );
-};
+});
+
+Sparkle.displayName = 'Sparkle';
 
 const AchievementCelebration = ({ achievement, onComplete }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -108,7 +114,7 @@ const AchievementCelebration = ({ achievement, onComplete }) => {
   
   return (
     <>
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes confettiFall {
           0% {
             transform: translateY(-100vh) rotateZ(0deg);
@@ -173,7 +179,7 @@ const AchievementCelebration = ({ achievement, onComplete }) => {
             background-position: 200% 0;
           }
         }
-      `}</style>
+      ` }} />
       
       {/* Overlay */}
       <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">

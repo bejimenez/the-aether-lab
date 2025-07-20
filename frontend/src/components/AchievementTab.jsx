@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Trophy, Star, Target, Calendar, Award, TrendingUp, Users, Crown } from 'lucide-react';
+import { Trophy, Star, Target, Calendar, Award, TrendingUp, Crown } from 'lucide-react';
 import { AchievementCard } from './AchievementCard';
 import { AchievementModal } from './AchievementModal';
 import { AchievementGallery } from './AchievementGallery';

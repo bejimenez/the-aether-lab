@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
-const StatsTab = ({ stats, collection, decks, loading }) => {
+const StatsTab = ({ stats, decks, loading }) => {
   const [expandedSections, setExpandedSections] = useState({});
   
   const toggleSection = (section) => {
@@ -19,7 +19,6 @@ const StatsTab = ({ stats, collection, decks, loading }) => {
 
   console.log('StatsTab received stats:', stats);
 
-  // The stats are already in enhanced format from backend - use directly!
   const processedStats = stats || {};
 
   if (loading) {
@@ -83,179 +82,7 @@ const StatsTab = ({ stats, collection, decks, loading }) => {
 };
 
 // Function to process current backend data into enhanced format
-function processBackendStats(stats) {
-  console.log('processBackendStats received:', stats);
-  
-  if (!stats) {
-    console.warn('No stats provided to processBackendStats');
-    return {};
-  }
 
-  // Process color distribution from current format
-  const colorDistribution = processColorDistribution(stats.color_distribution || []);
-  
-  // Process type distribution from current format  
-  const typeDistribution = processTypeDistribution(stats.type_distribution || []);
-
-  const processed = {
-    color_distribution: colorDistribution,
-    rarity_distribution: [], // Not available in current backend
-    type_distribution: typeDistribution,
-    creature_analysis: {}, // Not available in current backend
-    tribal_analysis: [], // Not available in current backend
-    set_distribution: [], // Not available in current backend
-    keyword_analysis: [], // Not available in current backend
-    format_legality: { // Placeholder
-      standard: 0,
-      modern: 0,
-      legacy: 0,
-      extended: 0
-    }
-  };
-
-  console.log('processBackendStats returning:', processed);
-  return processed;
-}
-
-function processColorDistribution(colorData) {
-  console.log('processColorDistribution received:', colorData, typeof colorData);
-  
-  // Add safety check
-  if (!Array.isArray(colorData)) {
-    console.warn('colorData is not an array:', colorData);
-    return {
-      mono_color: {},
-      guilds: {},
-      shards_wedges: {},
-      quads: [],
-      reapers: [],
-      colorless: 0,
-      total_multicolor: 0
-    };
-  }
-
-  const GUILDS = {
-    'U,W': 'Azorius', 'B,U': 'Dimir', 'B,R': 'Rakdos', 'G,R': 'Gruul',
-    'G,W': 'Selesnya', 'B,G': 'Golgari', 'R,U': 'Izzet', 'R,W': 'Boros',
-    'G,U': 'Simic', 'B,W': 'Orzhov'
-  };
-  
-  const SHARDS = {
-    'G,U,W': 'Bant', 'B,R,U': 'Grixis', 'B,G,R': 'Jund',
-    'R,U,W': 'Jeskai', 'B,G,W': 'Abzan'
-  };
-
-  const processed = {
-    mono_color: {},
-    guilds: {},
-    shards_wedges: {},
-    quads: [],
-    reapers: [],
-    colorless: 0,
-    total_multicolor: 0
-  };
-
-  let totalCards = 0;
-  
-  colorData.forEach(({ colors, count }) => {
-    totalCards += count;
-    
-    if (!colors || colors.length === 0) {
-      processed.colorless = count;
-    } else if (colors.length === 1) {
-      processed.mono_color[colors[0]] = { count, percentage: 0 };
-    } else if (colors.length === 2) {
-      const sortedKey = [...colors].sort().join(',');
-      const guildName = GUILDS[sortedKey] || colors.join('-');
-      processed.guilds[guildName] = { count, percentage: 0 };
-      processed.total_multicolor += count;
-    } else if (colors.length === 3) {
-      const sortedKey = [...colors].sort().join(',');
-      const shardName = SHARDS[sortedKey] || colors.join('-');
-      processed.shards_wedges[shardName] = { count, percentage: 0 };
-      processed.total_multicolor += count;
-    } else if (colors.length === 4) {
-      processed.quads.push({ colors: [...colors].sort(), count });
-      processed.total_multicolor += count;
-    } else if (colors.length === 5) {
-      processed.reapers.push({ colors: [...colors].sort(), count });
-      processed.total_multicolor += count;
-    }
-  });
-
-  // Calculate percentages
-  ['mono_color', 'guilds', 'shards_wedges'].forEach(category => {
-    Object.keys(processed[category]).forEach(key => {
-      processed[category][key].percentage = 
-        Math.round((processed[category][key].count / totalCards) * 100 * 10) / 10;
-    });
-  });
-
-  return processed;
-}
-
-function processTypeDistribution(typeData) {
-  console.log('processTypeDistribution received:', typeData, typeof typeData);
-  
-  // Add safety check
-  if (!Array.isArray(typeData)) {
-    console.warn('typeData is not an array:', typeData);
-    return {
-      categories: {
-        creatures: { count: 0, percentage: 0 },
-        instants: { count: 0, percentage: 0 },
-        sorceries: { count: 0, percentage: 0 },
-        artifacts: { count: 0, percentage: 0 },
-        enchantments: { count: 0, percentage: 0 },
-        planeswalkers: { count: 0, percentage: 0 },
-        lands: { count: 0, percentage: 0 },
-        other: { count: 0, percentage: 0 }
-      },
-      detailed: []
-    };
-  }
-
-  const categories = {
-    creatures: 0, instants: 0, sorceries: 0, artifacts: 0,
-    enchantments: 0, planeswalkers: 0, lands: 0, other: 0
-  };
-
-  let totalCards = 0;
-  const detailed = [];
-
-  typeData.forEach(({ type, count }) => {
-    totalCards += count;
-    const typeLower = type.toLowerCase();
-    
-    if (typeLower.includes('creature')) categories.creatures += count;
-    else if (typeLower.includes('instant')) categories.instants += count;
-    else if (typeLower.includes('sorcery')) categories.sorceries += count;
-    else if (typeLower.includes('artifact')) categories.artifacts += count;
-    else if (typeLower.includes('enchantment')) categories.enchantments += count;
-    else if (typeLower.includes('planeswalker')) categories.planeswalkers += count;
-    else if (typeLower.includes('land')) categories.lands += count;
-    else categories.other += count;
-
-    detailed.push({
-      type,
-      count,
-      percentage: Math.round((count / totalCards) * 100 * 10) / 10
-    });
-  });
-
-  // Add percentages to categories
-  Object.keys(categories).forEach(category => {
-    categories[category] = {
-      count: categories[category],
-      percentage: Math.round((categories[category] / totalCards) * 100 * 10) / 10
-    };
-  });
-
-  return {
-    categories,
-    detailed: detailed.sort((a, b) => b.count - a.count).slice(0, 10)
-  };
-}
 
 const CollectionOverviewCard = ({ stats, deckCount }) => {
   return (
@@ -370,13 +197,6 @@ const ColorDistributionCard = ({ colorStats }) => {
 
 const RarityDistributionCard = ({ rarityStats }) => {
   console.log('RarityDistributionCard received:', rarityStats);
-
-  const rarityColors = {
-    'common': 'bg-gray-500',
-    'uncommon': 'bg-gray-400', 
-    'rare': 'bg-yellow-500',
-    'mythic': 'bg-orange-500'
-  };
 
   const rarityEmojis = {
     'common': '⚪',

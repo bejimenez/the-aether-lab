@@ -1,4 +1,4 @@
-import { getAchievementIcon, getRarityConfig } from "./AchievementCard";
+import { getAchievementIcon, getRarityConfig } from "../lib/achievementUtils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';

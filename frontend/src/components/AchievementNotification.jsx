@@ -1,11 +1,16 @@
-// Achievement Notification Toast Component
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { getAchievementIcon, getRarityConfig } from '../lib/achievementUtils';
+
 export const AchievementNotification = ({ achievement, onClose, autoClose = true }) => {
   const [isVisible, setIsVisible] = useState(true);
   const IconComponent = getAchievementIcon(achievement.icon);
   const config = getRarityConfig(achievement.rarity);
 
   // Auto-close after 5 seconds
-  React.useEffect(() => {
+  useEffect(() => {
     if (autoClose) {
       const timer = setTimeout(() => {
         setIsVisible(false);

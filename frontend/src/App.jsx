@@ -18,7 +18,7 @@ import { ToastProvider, useToast } from './components/ui/toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useAchievements } from './hooks/useAchievements';
 import AchievementTab from './components/AchievementTab';
-import { AchievementNotification } from './components/AchievementNotification';
+
 import { AchievementCelebration } from './components/ConfettiCelebration';
 import './App.css';
 
@@ -113,7 +113,6 @@ function AppContent() {
   // Achievement hook
   const {
     achievements,
-    notifications,
     loading: achievementsLoading,
     triggerAchievementCheck,
     checkAchievementsAfterCardAdd,
@@ -266,10 +265,10 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
  
   try {
     // Call the API to add the card
-    const result = await api.addToCollection(effectiveUserId, card.scryfall_id, quantity);
+    const apiResult = await api.addToCollection(effectiveUserId, card.scryfall_id, quantity);
     
     // CRITICAL FIX: Immediately update the collection state
-    if (result && result.collection_card) {
+    if (apiResult && apiResult.collection_card) {
       setCollection(prevCollection => {
         // Check if card already exists in collection
         const existingCardIndex = prevCollection.findIndex(c => c.scryfall_id === card.scryfall_id);
@@ -277,11 +276,11 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
         if (existingCardIndex !== -1) {
           // Update existing card with the new data from server
           const newCollection = [...prevCollection];
-          newCollection[existingCardIndex] = result.collection_card;
+          newCollection[existingCardIndex] = apiResult.collection_card;
           return newCollection;
         } else {
           // Add new card to collection using the server response
-          return [...prevCollection, result.collection_card];
+          return [...prevCollection, apiResult.collection_card];
         }
       });
       
@@ -301,21 +300,17 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
       });
     }
     
-    // Load full data in background (don't await)
-    loadUserData();
-    
   } catch (error) {
     console.error("Failed to add card:", error);
     addToast('Error', 'Failed to add card to collection.', 'error');
   }
-}, [effectiveUserId, loadUserData, checkAchievementsAfterCardAdd, addToast, handleAchievementUnlocked]);
+}, [effectiveUserId, checkAchievementsAfterCardAdd, addToast, handleAchievementUnlocked]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
   if (!effectiveUserId) return;
   
   try {
     await api.removeFromCollection(effectiveUserId, cardId);
-    await loadUserData();
     
     // Force SearchTab to update by incrementing trigger
     setCollectionUpdateTrigger(prev => prev + 1);
@@ -323,14 +318,14 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
   } catch (error) {
     console.error("Failed to remove from collection:", error);
   }
-}, [effectiveUserId, loadUserData]);
+}, [effectiveUserId]);
 
   const handleUpdateQuantity = useCallback(async (scryfallId, newQuantity) => {
   if (!effectiveUserId) return;
   
   try {
     // Call the API
-    const result = await api.updateCardQuantity(effectiveUserId, scryfallId, newQuantity);
+    await api.updateCardQuantity(effectiveUserId, scryfallId, newQuantity);
     
     // Immediate local state update
     setCollection(prevCollection => {
@@ -350,39 +345,34 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
     // Force SearchTab to refresh immediately
     setCollectionUpdateTrigger(prev => prev + 1);
     
-    // Load full data in background (don't await)
-    loadUserData();
-    
   } catch (error) {
     console.error("Failed to update quantity:", error);
     addToast('Error', 'Failed to update card quantity.', 'error');
   }
-}, [effectiveUserId, loadUserData, addToast]);
+}, [effectiveUserId, addToast]);
 
   const handleDeleteDeck = useCallback(async (deckId) => {
     if (!effectiveUserId) return;
     
     try {
       await api.deleteDeck(deckId);
-      await loadUserData();
     } catch (error) {
       console.error("Failed to delete deck:", error);
     }
-  }, [effectiveUserId, loadUserData]);
+  }, [effectiveUserId]);
 
   const handleCreateDeck = useCallback(async (deckData) => {
     if (!effectiveUserId) return;
     
     try {
       await api.createDeck(effectiveUserId, deckData);
-      await loadUserData();
       setCreateDeckOpen(false);
       addToast('Deck Created', 'Your new deck has been created successfully.', 'success');
     } catch (error) {
       console.error("Failed to create deck:", error);
       addToast('Error', 'Failed to create deck.', 'error');
     }
-  }, [effectiveUserId, loadUserData, addToast]);
+  }, [effectiveUserId, addToast]);
 
   const handleBuildAroundCard = useCallback(async (card) => {
     if (!effectiveUserId) return;
@@ -625,11 +615,9 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
       {selectedCardForDetails && (
         <CardDetailsModal
           card={selectedCardForDetails}
-          collectionCard={collection.find(cc => cc.scryfall_id === selectedCardForDetails.scryfall_id)}
           isOpen={isCardDetailsOpen}
           onClose={handleCloseCardDetails}
           onBuildAround={handleBuildAroundCard}
-          onUpdateQuantity={handleUpdateQuantity}
         />
       )}
       

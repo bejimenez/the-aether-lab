@@ -1,5 +1,5 @@
 // src/components/collection/filters/CMCRangeSlider.jsx
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 
 const CMCRangeSlider = ({ 
@@ -7,11 +7,13 @@ const CMCRangeSlider = ({
   onChange, 
   min = 0, 
   max = 15,
-  step = 1,
   className = "" 
 }) => {
   const [localValue, setLocalValue] = useState(value);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Simple debounce utility
+  
 
   // Update local value when prop changes
   useEffect(() => {
@@ -20,9 +22,9 @@ const CMCRangeSlider = ({
 
   // Debounced onChange to avoid too many API calls
   const debouncedOnChange = useCallback(
-    debounce((newValue) => {
+    (newValue) => {
       onChange?.(newValue);
-    }, 300),
+    },
     [onChange]
   );
 
@@ -31,11 +33,6 @@ const CMCRangeSlider = ({
     if (!isDragging) {
       debouncedOnChange(newValue);
     }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    debouncedOnChange(localValue);
   };
 
   const percentToValue = (percent) => {
@@ -195,17 +192,6 @@ const CMCRangeSlider = ({
   );
 };
 
-// Simple debounce utility
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
+
 
 export default CMCRangeSlider;

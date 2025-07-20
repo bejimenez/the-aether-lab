@@ -1,5 +1,3 @@
-// frontend/src/components/ManaCost.jsx
-import React from 'react';
 import ManaSymbol from './ManaSymbol';
 
 const ManaCost = ({ 

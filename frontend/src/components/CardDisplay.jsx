@@ -10,13 +10,16 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 const MAGIC_CARD_BACK_URL = 'https://cards.scryfall.io/large/back/0/0/0000000-0000-0000-0000-000000000000.jpg';
 
 const CardDisplay = ({
+  id,
   card,
   collectionCard,
   onAdd,
   onUpdateQuantity,
   onBuildAround,
   onShowDetails,
-  showCollectionBadge = false
+  showCollectionBadge = false,
+  onFocus,
+  onBlur
 }) => {
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -88,10 +91,12 @@ const CardDisplay = ({
 
   const handleFocus = () => {
     setIsFocused(true);
+    if (onFocus) onFocus();
   };
 
   const handleBlur = () => {
     setIsFocused(false);
+    if (onBlur) onBlur();
   };
 
   const handleMouseEnter = () => {
@@ -104,6 +109,7 @@ const CardDisplay = ({
 
   return (
     <Card 
+      id={id}
       ref={cardRef}
       className={`w-full max-w-sm flex flex-col cursor-pointer transition-all duration-200 ${
         isFocused ? 'ring-2 ring-blue-500 ring-offset-2' : ''
@@ -125,7 +131,7 @@ const CardDisplay = ({
                 variant="destructive" 
                 className={`${quantity > 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'} text-white`}
               >
-                {quantity} in Collection
+                {quantity > 0 ? 'Owned' : 'Not Owned'}
               </Badge>
             )}
           </div>
