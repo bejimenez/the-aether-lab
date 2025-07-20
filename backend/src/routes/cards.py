@@ -17,6 +17,7 @@ def get_collection(user_id):
     # Verify user can only access their own collection
     if request.current_user.id != user_id:
         return jsonify({"error": "Unauthorized"}), 403
+    pass
 
 @cards_bp.route('/cards/search', methods=['GET'])
 def search_cards():
@@ -26,35 +27,55 @@ def search_cards():
         return jsonify({'error': 'Query parameter q is required'}), 400
     
     try:
-        # First check if we have cached results
-        cached_cards = Card.query.filter(Card.name.ilike(f'%{query}%')).limit(20).all()
-        
-        if cached_cards:
-            return jsonify({
-                'cards': [card.to_dict() for card in cached_cards],
-                'source': 'cache'
-            })
-        
-        # If no cached results, search Scryfall API
-        response = requests.get(
+        all_potential_results = []
+        seen_scryfall_ids = set()
+
+        # Helper to add results, handling both cached Card objects and raw Scryfall dicts
+        def add_result(item):
+            # Determine the Scryfall ID from either 'scryfall_id' (from .to_dict()) or 'id' (from Scryfall API)
+            scryfall_id = item.get('scryfall_id') or item.get('id')
+            if scryfall_id and scryfall_id not in seen_scryfall_ids:
+                all_potential_results.append(item)
+                seen_scryfall_ids.add(scryfall_id)
+
+        # 1. Prioritize exact match in local cache
+        exact_match_card = Card.query.filter(Card.name.ilike(query)).first()
+        if exact_match_card:
+            add_result(exact_match_card.to_dict())
+
+        # 2. Try an exact search on Scryfall
+        exact_scryfall_response = requests.get(
             f'{SCRYFALL_API_BASE}/cards/search',
-            params={'q': query, 'order': 'name'},
+            params={'q': f'!"{query}"', 'order': 'name'}, # Exact match query
             timeout=10
         )
+        if exact_scryfall_response.status_code == 200:
+            for card_data in exact_scryfall_response.json().get('data', []):
+                add_result(card_data)
+
+        # 3. Then, check for partial matches in local cache
+        cached_partial_matches = Card.query.filter(Card.name.ilike(f'%{query}%')).limit(20).all()
+        for card in cached_partial_matches:
+            add_result(card.to_dict())
+
+        # 4. Fallback to broader search on Scryfall if needed
+        if len(all_potential_results) < 20: # Only fetch more if we don't have enough results yet
+            broader_scryfall_response = requests.get(
+                f'{SCRYFALL_API_BASE}/cards/search',
+                params={'q': query, 'order': 'name'},
+                timeout=10
+            )
+            if broader_scryfall_response.status_code == 200:
+                for card_data in broader_scryfall_response.json().get('data', []):
+                    add_result(card_data)
         
-        if response.status_code == 404:
-            return jsonify({'cards': [], 'source': 'api'})
-        
-        if response.status_code != 200:
-            return jsonify({'error': 'Failed to search cards'}), 500
-        
-        data = response.json()
-        cards = []
-        
-        # Cache the results and return them
-        for card_data in data.get('data', []):
+        final_cards = []
+        for card_data in all_potential_results:
+            # Determine the Scryfall ID from either 'scryfall_id' (from .to_dict()) or 'id' (from Scryfall API)
+            scryfall_id_to_process = card_data.get('scryfall_id') or card_data.get('id')
+            
             # Check if card already exists in cache
-            existing_card = Card.query.filter_by(scryfall_id=card_data['id']).first()
+            existing_card = Card.query.filter_by(scryfall_id=scryfall_id_to_process).first()
             
             if not existing_card:
                 # Extract image URLs - prioritize art_crop, fallback to normal, then to None
@@ -68,12 +89,12 @@ def search_cards():
                         # Fallback to normal if art_crop not available
                         image_uri = image_uris.get('small')
                     if not image_uri:
-                        # Final fallback to small
+                        # Final fallback to normal
                         image_uri = image_uris.get('normal')
                 
                 # Create new card entry
                 card = Card(
-                    scryfall_id=card_data['id'],
+                    scryfall_id=scryfall_id_to_process,
                     name=card_data['name'],
                     mana_cost=card_data.get('mana_cost', ''),
                     cmc=card_data.get('cmc', 0),
@@ -89,15 +110,15 @@ def search_cards():
                     set_name=card_data.get('set_name', '')
                 )
                 db.session.add(card)
-                cards.append(card.to_dict())
+                final_cards.append(card.to_dict())
             else:
-                cards.append(existing_card.to_dict())
+                final_cards.append(existing_card.to_dict())
         
         db.session.commit()
         
         return jsonify({
-            'cards': cards,
-            'source': 'api'
+            'cards': final_cards[:20], # Limit to 20 results
+            'source': 'mixed'
         })
         
     except requests.RequestException as e:
