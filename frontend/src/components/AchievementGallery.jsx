@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { AchievementCard } from './AchievementCard';
 
 const AchievementGallery = ({ achievements, onAchievementClick }) => {

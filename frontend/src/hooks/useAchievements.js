@@ -74,7 +74,7 @@ const makeAuthenticatedRequest = async (url, options = {}) => {
  * @param {number} userId - The user ID to fetch achievements for
  * @returns {object} Achievement state and functions
  */
-export const useAchievements = (userId) => {
+export const useAchievements = (userId, onAchievementUnlocked) => {
   const [achievements, setAchievements] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -177,7 +177,13 @@ export const useAchievements = (userId) => {
       // Show notifications for newly completed achievements
       if (response.newly_completed && response.newly_completed.length > 0) {
         console.log('New achievements earned:', response.newly_completed);
-        // You could show toast notifications here
+        
+        // NEW: Trigger callback for each new achievement
+        response.newly_completed.forEach(achievement => {
+          if (onAchievementUnlocked) {
+            onAchievementUnlocked(achievement);
+          }
+        });
       }
       
       return response;
@@ -185,7 +191,7 @@ export const useAchievements = (userId) => {
       console.error('Error checking achievements after card add:', err);
       return { newly_completed: [] };
     }
-  }, [userId, triggerAchievementCheck]);
+  }, [userId, triggerAchievementCheck, onAchievementUnlocked]);
 
   // Load achievements on mount and when userId changes
   useEffect(() => {

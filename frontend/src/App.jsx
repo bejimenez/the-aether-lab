@@ -110,18 +110,7 @@ function AppContent() {
   // In demo mode, use user ID 1 for testing achievements
   const effectiveUserId = demoMode ? 1 : userProfile?.id;
 
-  // Achievement hook
-  const {
-    achievements,
-    loading: achievementsLoading,
-    triggerAchievementCheck,
-    checkAchievementsAfterCardAdd,
-    fetchAchievements,
-    unreadNotifications,
-    totalPoints
-  } = useAchievements(effectiveUserId);
-
-  // Keep all your existing state
+  const [currentCelebration, setCurrentCelebration] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [collection, setCollection] = useState([]);
   const [collectionStats, setCollectionStats] = useState({});
@@ -134,7 +123,29 @@ function AppContent() {
   const [selectedCardForDetails, setSelectedCardForDetails] = useState(null);
   const [isCardDetailsOpen, setCardDetailsOpen] = useState(false);
   const [collectionUpdateTrigger, setCollectionUpdateTrigger] = useState(0);
-  const [currentCelebration, setCurrentCelebration] = useState(null);
+
+  const handleAchievementUnlocked = useCallback((achievement) => {
+    // Show confetti celebration
+    setCurrentCelebration(achievement);
+    
+    // Show toast notification
+    addToast(
+      '🏆 Achievement Unlocked!',
+      `${achievement.name}: ${achievement.description}`,
+      'success'
+    );
+  }, [addToast]);
+
+  // Achievement hook
+  const {
+    achievements,
+    loading: achievementsLoading,
+    triggerAchievementCheck,
+    checkAchievementsAfterCardAdd,
+    fetchAchievements,
+    unreadNotifications,
+    totalPoints
+  } = useAchievements(effectiveUserId, handleAchievementUnlocked);
   
   // Ref for search input to enable focus via keyboard shortcut
   const searchInputRef = useRef(null);
@@ -241,18 +252,7 @@ const handleCloseCardDetails = () => {
   setCardDetailsOpen(false);
   setSelectedCardForDetails(null);
 };
-// ✅ Define handleAchievementUnlocked FIRST
-const handleAchievementUnlocked = useCallback((achievement) => {
-  // Show confetti celebration
-  setCurrentCelebration(achievement);
-  
-  // Show toast notification
-  addToast(
-    '🏆 Achievement Unlocked!',
-    `${achievement.name}: ${achievement.description}`,
-    'success'
-  );
-}, [addToast]);
+
 
 // ✅ Define handleCelebrationComplete SECOND
 const handleCelebrationComplete = useCallback(() => {
@@ -292,19 +292,13 @@ const handleAddToCollection = useCallback(async (card, quantity = 1) => {
     addToast('Card Added!', 'Your card has been added to your collection.', 'success');
    
     // Check for achievements
-    const achievementResult = await checkAchievementsAfterCardAdd();
-   
-    if (achievementResult?.newly_completed?.length > 0) {
-      achievementResult.newly_completed.forEach(achievement => {
-        handleAchievementUnlocked(achievement);
-      });
-    }
+    await checkAchievementsAfterCardAdd();
     
   } catch (error) {
     console.error("Failed to add card:", error);
     addToast('Error', 'Failed to add card to collection.', 'error');
   }
-}, [effectiveUserId, checkAchievementsAfterCardAdd, addToast, handleAchievementUnlocked]);
+}, [effectiveUserId, checkAchievementsAfterCardAdd, addToast]);
 
   const handleRemoveFromCollection = useCallback(async (cardId) => {
   if (!effectiveUserId) return;
